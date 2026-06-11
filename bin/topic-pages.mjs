@@ -1,17 +1,18 @@
 #!/usr/bin/env node
+import { spawn } from "node:child_process";
 import path from "node:path";
-import { pathToFileURL, fileURLToPath } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const scriptsDir = path.join(__dirname, "..", "scripts");
+const buildScript = path.join(__dirname, "..", "scripts", "build.mjs");
 
-// subcommand: "dev" → dev.mjs, 그 외(또는 없음) → build.mjs
-const [, , subcommand, ...rest] = process.argv;
-const scriptName = subcommand === "dev" ? "dev.mjs" : "build.mjs";
-const scriptPath = path.join(scriptsDir, scriptName);
+const child = spawn(process.execPath, [buildScript, ...process.argv.slice(2)], {
+  stdio: "inherit",
+});
 
-// import한 스크립트에서 process.argv.slice(2)가 사용자 인자만 보도록 조정
-process.argv = ["node", scriptPath, ...rest];
-
-await import(pathToFileURL(scriptPath).href);
+child.on("exit", (code) => process.exit(code ?? 0));
+child.on("error", (err) => {
+  console.error(err);
+  process.exit(1);
+});
