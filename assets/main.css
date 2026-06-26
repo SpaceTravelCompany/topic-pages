@@ -498,13 +498,13 @@ a {
 
 @media (min-width: 800px) {
   .content-viewport {
-    padding: 2rem 2.75rem 3rem;
+    padding: 1.5rem 2.75rem 3rem;
   }
 }
 
 @media (min-width: 1200px) {
   .content-viewport {
-    padding: 2.25rem 3.5rem 3.5rem;
+    padding: 1.5rem 3.5rem 3.5rem;
   }
 }
 
