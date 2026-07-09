@@ -1575,6 +1575,49 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   }
 }
 
+/* ── Print ── */
+@media print {
+  .main-header,
+  .nav-panel,
+  .nav-brand,
+  .toc-panel,
+  .toc-backdrop,
+  .nav-backdrop,
+  .search-modal,
+  .section-tabs-wrap,
+  .code-copy-btn,
+  .code-lang,
+  .copy-toast,
+  .skip-link,
+  .cc-badge,
+  .nav-license,
+  .main-header-actions,
+  .toc-toggle,
+  .search-trigger,
+  .tabs-toggle,
+  .nav-toggle { display: none !important; }
+
+  html, body {
+    background: white !important;
+    color: black !important;
+  }
+  .prose a { color: var(--link); text-decoration: underline; }
+  .prose a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; }
+
+  .content-viewport {
+    padding: 0 !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+  .prose { color: black; }
+  .prose pre, .prose code { background: transparent !important; border: 1px solid #ddd; }
+  .prose blockquote { border-left: 3px solid #333; }
+  .prose h2, .prose h3 { page-break-after: avoid; }
+  .prose pre { page-break-inside: avoid; }
+  .app { display: block !important; height: auto !important; }
+}
+
 /* ── Prose heading anchor target ── */
 .prose :target {
   scroll-margin-top: 1rem;
