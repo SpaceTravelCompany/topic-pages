@@ -357,12 +357,11 @@
   const searchBackdrop = document.getElementById("search-backdrop");
   const searchInput = document.getElementById("search-input");
   const searchResults = document.getElementById("search-results");
-  const searchDataEl = document.getElementById("search-index");
 
-  let searchSearcher = null;
   let searchActiveIdx = -1;
   let searchLastQuery = "";
   let searchDebounceTimer = null;
+  let _cachedRecords = null;
 
   function searchModalIsOpen() {
     return searchModal && !searchModal.hasAttribute("hidden");
@@ -417,22 +416,38 @@
     return Object.keys(set);
   }
 
-  // Lazy init MiniSearch
-  async function ensureSearcher() {
-    if (searchSearcher) return searchSearcher;
-    if (!searchDataEl) return null;
-    const raw = searchDataEl.textContent;
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    if (!data.records || !data.records.length) return null;
-    searchSearcher = new MiniSearch({
-      fields: ["title", "body"],
-      storeFields: ["id", "topicSlug", "topicTitle", "topicGroup", "sectionId", "sectionTitle", "body"],
-      searchOptions: { prefix: true, fuzzy: 0.2, boost: { title: 2 } },
-      tokenize: tokenize,
-    });
-    searchSearcher.addAll(data.records);
-    return searchSearcher;
+  function escapeRegex(s) {
+    return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function searchRecords(query, records) {
+    const tokens = tokenize(query).map(function (t) { return t.toLowerCase(); }).filter(Boolean);
+    if (!tokens.length) return [];
+    return records
+      .map(function (r) {
+        const sectionLower = r.sectionTitle.toLowerCase();
+        const bodyLower = r.body.toLowerCase();
+        var score = 0;
+        for (var i = 0; i < tokens.length; i++) {
+          var t = tokens[i];
+          if (sectionLower.includes(t)) score += 10;
+          var re = new RegExp(escapeRegex(t), "g");
+          var matches = bodyLower.match(re);
+          if (matches) score += matches.length;
+        }
+        return score > 0 ? { r: r, score: score } : null;
+      })
+      .filter(Boolean)
+      .sort(function (a, b) { return b.score - a.score; })
+      .slice(0, 12)
+      .map(function (x) { return x.r; });
+  }
+
+  function getRecords() {
+    if (_cachedRecords) return _cachedRecords;
+    var el = document.getElementById("search-index");
+    _cachedRecords = el ? (JSON.parse(el.textContent).records || []) : [];
+    return _cachedRecords;
   }
 
   function renderEmpty(msg) {
@@ -503,19 +518,15 @@
     if (results.length) setActive(0);
   }
 
-  async function runSearch() {
+  function runSearch() {
     var query = searchInput.value.trim();
     searchLastQuery = query;
     if (!query) {
       renderEmpty("키워드를 입력하세요");
       return;
     }
-    var s = await ensureSearcher();
-    if (!s) {
-      renderEmpty("검색 엔진을 초기화할 수 없습니다");
-      return;
-    }
-    var results = s.search(query, { fuzzy: 0.2, prefix: true }).slice(0, 12);
+    var records = getRecords();
+    var results = searchRecords(query, records);
     if (!results.length) {
       renderEmpty("결과 없음");
       return;

@@ -284,7 +284,6 @@ function renderPage(siteData, searchIndex) {
   </div>
   <script type="application/json" id="site-data">${json}</script>
   <script src="assets/prism.js"></script>
-  <script src="assets/vendor/minisearch.min.js"></script>
   <script src="assets/app.js"></script>
 </body>
 </html>`;
@@ -296,7 +295,6 @@ async function copyAssets(args) {
 
   const required = ["main.css", "prism.css", "prism.js", "app.js", "favicon.svg", "cc-by-nc-sa.svg"];
   const optional = ["custom.css", "custom.js"];
-  const vendorFiles = ["minisearch.min.js"];
 
   // 빌더 자신의 assets 디렉토리 (폴백용)
   const builderAssets = path.resolve(__dirname, "..", "assets");
@@ -323,20 +321,6 @@ async function copyAssets(args) {
       await fs.copyFile(chosen, path.join(dest, file));
     } else if (required.includes(file)) {
       console.warn(`  warn: required asset not found in user or builder: ${file}`);
-    }
-  }
-
-  // Vendor files (optional — copy from builder assets only)
-  const destVendor = path.join(dest, "vendor");
-  await fs.mkdir(destVendor, { recursive: true });
-  const builderVendor = path.resolve(__dirname, "..", "assets", "vendor");
-  for (const file of vendorFiles) {
-    const src = path.join(builderVendor, file);
-    try {
-      await fs.access(src);
-      await fs.copyFile(src, path.join(destVendor, file));
-    } catch {
-      // vendor missing — non-fatal
     }
   }
 }
