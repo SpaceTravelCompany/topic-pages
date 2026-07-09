@@ -643,19 +643,19 @@ a {
 /* ── Prose ── */
 .prose h2 {
   margin: 0 0 1.25rem;
-  font-size: var(--text-xl);
+  font-size: 1.25em;
   font-weight: 600;
 }
 
 .prose h3 {
   margin: 1.75rem 0 0.75rem;
-  font-size: var(--text-lg);
+  font-size: 1.05em;
   font-weight: 600;
 }
 
 .prose h4 {
   margin: 1.1rem 0 0.45rem;
-  font-size: var(--text-base);
+  font-size: 0.9375em;
 }
 
 .prose p {
@@ -679,7 +679,7 @@ a {
   background: var(--accent-dim);
   border-radius: 0 var(--radius) var(--radius) 0;
   color: var(--text-muted);
-  font-size: 0.92rem;
+  font-size: 0.92em;
 }
 
 .prose blockquote p:last-child {
@@ -693,8 +693,8 @@ a {
   border-left: 4px solid var(--border);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   background: var(--surface);
-  font-size: var(--text-sm);
-  line-height: var(--text-sm--lh);
+  font-size: 0.8125em;
+  line-height: 1.5;
 }
 
 .callout-label {
@@ -702,7 +702,7 @@ a {
   padding: 0.1rem 0.5rem;
   margin-bottom: 0.35rem;
   border-radius: 999px;
-  font-size: var(--text-xs);
+  font-size: 0.75em;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -780,7 +780,7 @@ a {
   display: inline-block;
   padding: 0.05em 0.5em;
   border-radius: 999px;
-  font-size: var(--text-xs);
+  font-size: 0.75em;
   font-weight: 500;
   vertical-align: middle;
   line-height: 1.5;
@@ -835,7 +835,7 @@ a {
   width: 100%;
   min-width: 20rem;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: 0.88em;
 }
 
 .prose th,
@@ -864,7 +864,7 @@ a {
 .prose pre[class*="language-"] {
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  font-size: 0.82rem;
+  font-size: 0.82em;
   box-shadow: var(--shadow-inset);
 }
 
@@ -1274,7 +1274,7 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   }
 
   .prose pre[class*="language-"] {
-    font-size: var(--text-sm);
+    font-size: 0.8125em;
   }
 
   .relflow-grid {
