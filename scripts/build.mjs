@@ -257,15 +257,11 @@ function renderPage(siteData, searchIndex) {
             <span class="theme-icon-light" aria-hidden="true">☀</span>
           </button>
           <button type="button" class="toc-toggle" id="toc-toggle" aria-label="목차 토글" aria-controls="toc-panel" aria-expanded="false">☰ 목차</button>
-          <button type="button" class="text-btn" id="tabs-toggle" aria-expanded="true" aria-controls="section-tabs-wrap">섹션 숨기기</button>
           <button type="button" class="icon-btn sec-nav-btn" id="sec-prev" disabled aria-label="이전 섹션">‹</button>
           <span class="sec-counter" id="sec-counter"></span>
           <button type="button" class="icon-btn sec-nav-btn" id="sec-next" disabled aria-label="다음 섹션">›</button>
         </div>
       </header>
-      <div class="section-tabs-wrap" id="section-tabs-wrap">
-        <div class="section-tabs" id="section-tabs" role="tablist"></div>
-      </div>
       <article class="content-viewport prose" id="content-viewport" role="tabpanel"></article>
     </main>
     <aside class="toc-panel" id="toc-panel" aria-label="이 페이지 목차"></aside>

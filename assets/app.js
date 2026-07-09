@@ -4,11 +4,8 @@
 
   const { site, topics } = JSON.parse(dataEl.textContent);
 
-  const mainPanel = document.getElementById("main");
   const eyebrowEl = document.getElementById("topic-eyebrow");
   const sectionTitleEl = document.getElementById("section-title");
-  const tabsEl = document.getElementById("section-tabs");
-  const tabsToggleBtn = document.getElementById("tabs-toggle");
   const viewportEl = document.getElementById("content-viewport");
   const counterEl = document.getElementById("sec-counter");
   const prevBtn = document.getElementById("sec-prev");
@@ -19,7 +16,6 @@
   const topicBtns = [...document.querySelectorAll(".topic-btn")];
 
   const STORAGE_PREFIX = (site && site.storagePrefix) || "topic-pages";
-  const TABS_KEY = `${STORAGE_PREFIX}-tabs-visible`;
   const THEME_KEY = `${STORAGE_PREFIX}-theme`;
   const themeToggleBtn = document.getElementById("theme-toggle");
 
@@ -27,8 +23,6 @@
 
   let currentTopic = defaultTopic;
   let currentSection = 0;
-  let tabsVisible = localStorage.getItem(TABS_KEY) !== "false";
-  let renderedTabsTopic = null;
 
   function getTheme() {
     return document.documentElement.dataset.theme === "light" ? "light" : "dark";
@@ -72,14 +66,6 @@
     };
   }
 
-  function setTabsVisible(visible) {
-    tabsVisible = visible;
-    localStorage.setItem(TABS_KEY, visible ? "true" : "false");
-    mainPanel.classList.toggle("tabs-hidden", !visible);
-    tabsToggleBtn.setAttribute("aria-expanded", String(visible));
-    tabsToggleBtn.textContent = visible ? "섹션 숨기기" : "섹션 보기";
-  }
-
   function closeMobileNav() {
     navPanel?.classList.remove("open");
     navBackdrop?.setAttribute("hidden", "");
@@ -93,26 +79,6 @@
   function setActiveNav() {
     topicBtns.forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.topic === currentTopic);
-    });
-  }
-
-  function renderSectionTabs() {
-    const topic = topics[currentTopic];
-    if (!topic) return;
-
-    if (renderedTabsTopic !== currentTopic) {
-      tabsEl.innerHTML = topic.sections
-        .map((sec, i) => {
-          return `<button type="button" class="section-tab" role="tab" aria-selected="false" data-index="${i}">${escapeHtml(sec.title)}</button>`;
-        })
-        .join("");
-      renderedTabsTopic = currentTopic;
-    }
-
-    tabsEl.querySelectorAll(".section-tab").forEach((btn, i) => {
-      const active = i === currentSection;
-      btn.classList.toggle("active", active);
-      btn.setAttribute("aria-selected", String(active));
     });
   }
 
@@ -135,7 +101,6 @@
     sectionTitleEl.textContent = section?.title ?? topic.title;
     document.title = `${section?.title ?? topic.title} — ${site.title}`;
 
-    renderSectionTabs();
     setActiveNav();
     updateHash();
 
@@ -298,15 +263,6 @@
     btn.addEventListener("click", () => showTopic(btn.dataset.topic));
   });
 
-  tabsEl.addEventListener("click", (e) => {
-    if (!(e.target instanceof Element)) return;
-    const btn = e.target.closest(".section-tab");
-    if (!btn || !tabsEl.contains(btn)) return;
-    showSection(Number(btn.dataset.index));
-  });
-
-  tabsToggleBtn.addEventListener("click", () => setTabsVisible(!tabsVisible));
-
   themeToggleBtn?.addEventListener("click", () => {
     setTheme(getTheme() === "dark" ? "light" : "dark");
     highlightCode();
@@ -345,8 +301,6 @@
   window.addEventListener("resize", () => {
     if (window.innerWidth > 800) closeMobileNav();
   });
-
-  setTabsVisible(tabsVisible);
 
   const initial = parseHash();
   showTopic(initial.topic, initial.sectionId);
