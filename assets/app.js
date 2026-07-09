@@ -99,9 +99,20 @@
     if (!topic) return;
 
     const section = topic.sections[currentSection];
+    if (!section) return;
 
-    viewportEl.innerHTML = section?.html ?? "";
-    viewportEl.scrollTop = 0;
+    // Preserve scroll ratio across section navigation
+    const prevHeight = viewportEl.scrollHeight || 1;
+    const prevPct = viewportEl.scrollTop / prevHeight;
+
+    viewportEl.innerHTML = section.html;
+
+    // Restore scroll position by ratio, clamped to valid range
+    const maxScroll = viewportEl.scrollHeight - viewportEl.clientHeight;
+    viewportEl.scrollTop = maxScroll > 0
+      ? Math.max(0, Math.min(maxScroll, prevPct * viewportEl.scrollHeight))
+      : 0;
+
     // Defer code highlighting to next frame — user sees content immediately
     requestAnimationFrame(highlightCode);
 
