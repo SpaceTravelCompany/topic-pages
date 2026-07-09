@@ -215,16 +215,14 @@
     }
   });
 
-  /* ── TOC ── */
-  let tocObserver = null;
+  /* ── TOC (section-per-view model) ──
+     Each TOC anchor stores the section index. Click navigates via showSection()
+     instead of scrolling DOM headings (which don't exist for non-current sections).
+  */
 
   function clearToc() {
     const panel = document.getElementById("toc-panel");
     if (panel) panel.innerHTML = "";
-    if (tocObserver) {
-      tocObserver.disconnect();
-      tocObserver = null;
-    }
   }
 
   function initToc(sections) {
@@ -234,26 +232,29 @@
 
     const ul = document.createElement("ul");
 
-    sections.forEach((sec) => {
+    sections.forEach((sec, i) => {
       // Section h2
       const li = document.createElement("li");
       li.className = "depth-2";
       const a = document.createElement("a");
       a.href = "#" + sec.id;
+      a.dataset.sectionIdx = i;
       a.dataset.tocTarget = sec.id;
       a.textContent = sec.title;
+      a.classList.toggle("active", i === currentSection);
       li.appendChild(a);
       ul.appendChild(li);
 
-      // h3/h4 within section
-      if (sec.headings) {
+      // h3/h4 within section (only shown when this section is active)
+      if (sec.headings && i === currentSection) {
         sec.headings.forEach((h) => {
-          if (h.depth < 3) return; // skip the virtual h2 (already added)
+          if (h.depth < 3) return; // skip the virtual h2
           const subLi = document.createElement("li");
           subLi.className = "depth-" + h.depth;
           const subA = document.createElement("a");
           subA.href = "#" + h.id;
-          subA.dataset.tocTarget = h.id;
+          subA.dataset.sectionIdx = i;
+          subA.dataset.headingId = h.id;
           subA.textContent = h.text;
           subLi.appendChild(subA);
           ul.appendChild(subLi);
@@ -263,57 +264,24 @@
 
     panel.appendChild(ul);
 
-    // IntersectionObserver for active heading
-    const headingIds = sections.flatMap((sec) => {
-      const ids = [sec.id];
-      if (sec.headings) {
-        ids.push(...sec.headings.filter((h) => h.depth >= 3).map((h) => h.id));
-      }
-      return ids;
-    });
-
-    if (headingIds.length === 0) return;
-
-    const links = panel.querySelectorAll("a[data-toc-target]");
-
-    tocObserver = new IntersectionObserver(
-      (entries) => {
-        let activeId = null;
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) activeId = entry.target.id;
-        });
-        if (!activeId) {
-          // Pick the first visible heading above viewport
-          for (const entry of entries) {
-            if (entry.boundingClientRect.top < 120) activeId = entry.target.id;
-          }
-        }
-        links.forEach((link) => {
-          link.classList.toggle("active", link.dataset.tocTarget === activeId);
-        });
-      },
-      { rootMargin: "-80px 0px -60% 0px", threshold: 0 },
-    );
-
-    headingIds.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) tocObserver.observe(el);
-    });
-
-    // Click handler: smooth scroll + hash
+    // Click handler: navigate to section via showSection, then optionally scroll to sub-heading
     panel.addEventListener("click", (e) => {
-      const a = e.target.closest("a[data-toc-target]");
+      const a = e.target.closest("a[data-section-idx]");
       if (!a) return;
       e.preventDefault();
-      const id = a.dataset.tocTarget;
-      const target = document.getElementById(id);
-      if (target) {
-        target.scrollIntoView({ behavior: "smooth", block: "start" });
-        history.replaceState(null, "", `#${currentTopic}/${id}`);
-      }
+      const idx = parseInt(a.dataset.sectionIdx, 10);
+      showSection(idx);
       // Close mobile TOC
       panel.classList.remove("open");
       document.getElementById("toc-toggle")?.setAttribute("aria-expanded", "false");
+      // Scroll to sub-heading after section renders
+      const headingId = a.dataset.headingId;
+      if (headingId) {
+        requestAnimationFrame(() => {
+          const el = document.getElementById(headingId);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
     });
   }
 

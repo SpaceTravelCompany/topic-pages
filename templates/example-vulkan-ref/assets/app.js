@@ -4,7 +4,7 @@
 
   const { site, topics } = JSON.parse(dataEl.textContent);
 
-  const mainPanel = document.getElementById("main-panel");
+  const mainPanel = document.getElementById("main");
   const eyebrowEl = document.getElementById("topic-eyebrow");
   const sectionTitleEl = document.getElementById("section-title");
   const tabsEl = document.getElementById("section-tabs");
@@ -138,6 +138,9 @@
     renderSectionTabs();
     setActiveNav();
     updateHash();
+
+    // Rebuild TOC for current topic (all sections)
+    initToc(topic.sections);
   }
 
   function showTopic(slug, sectionId) {
@@ -167,6 +170,129 @@
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;");
   }
+
+  /* ── Copy code button (event delegation) ── */
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".copy-code-btn");
+    if (!btn) return;
+    const toolbar = btn.closest(".code-toolbar");
+    if (!toolbar) return;
+    const code = toolbar.querySelector("code");
+    const text = code?.innerText ?? "";
+    const toast = toolbar.querySelector(".copy-toast");
+
+    function show(msg, ok) {
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.classList.add("show");
+      btn.classList.toggle("success", ok);
+      setTimeout(() => {
+        toast.classList.remove("show");
+        btn.classList.remove("success");
+      }, 1600);
+    }
+
+    // 1st: Clipboard API
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        show("복사됨", true);
+        return;
+      } catch { /* fall through */ }
+    }
+    // 2nd: file:// fallback (execCommand)
+    try {
+      const range = document.createRange();
+      range.selectNode(code);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      const ok = document.execCommand("copy");
+      sel.removeAllRanges();
+      show(ok ? "복사됨" : "Ctrl+C로 복사해 주세요", ok);
+    } catch {
+      show("Ctrl+C로 복사해 주세요", false);
+    }
+  });
+
+  /* ── TOC (section-per-view model) ──
+     Each TOC anchor stores the section index. Click navigates via showSection()
+     instead of scrolling DOM headings (which don't exist for non-current sections).
+  */
+
+  function clearToc() {
+    const panel = document.getElementById("toc-panel");
+    if (panel) panel.innerHTML = "";
+  }
+
+  function initToc(sections) {
+    clearToc();
+    const panel = document.getElementById("toc-panel");
+    if (!panel || !sections || sections.length === 0) return;
+
+    const ul = document.createElement("ul");
+
+    sections.forEach((sec, i) => {
+      // Section h2
+      const li = document.createElement("li");
+      li.className = "depth-2";
+      const a = document.createElement("a");
+      a.href = "#" + sec.id;
+      a.dataset.sectionIdx = i;
+      a.dataset.tocTarget = sec.id;
+      a.textContent = sec.title;
+      a.classList.toggle("active", i === currentSection);
+      li.appendChild(a);
+      ul.appendChild(li);
+
+      // h3/h4 within section (only shown when this section is active)
+      if (sec.headings && i === currentSection) {
+        sec.headings.forEach((h) => {
+          if (h.depth < 3) return; // skip the virtual h2
+          const subLi = document.createElement("li");
+          subLi.className = "depth-" + h.depth;
+          const subA = document.createElement("a");
+          subA.href = "#" + h.id;
+          subA.dataset.sectionIdx = i;
+          subA.dataset.headingId = h.id;
+          subA.textContent = h.text;
+          subLi.appendChild(subA);
+          ul.appendChild(subLi);
+        });
+      }
+    });
+
+    panel.appendChild(ul);
+
+    // Click handler: navigate to section via showSection, then optionally scroll to sub-heading
+    panel.addEventListener("click", (e) => {
+      const a = e.target.closest("a[data-section-idx]");
+      if (!a) return;
+      e.preventDefault();
+      const idx = parseInt(a.dataset.sectionIdx, 10);
+      showSection(idx);
+      // Close mobile TOC
+      panel.classList.remove("open");
+      document.getElementById("toc-toggle")?.setAttribute("aria-expanded", "false");
+      // Scroll to sub-heading after section renders
+      const headingId = a.dataset.headingId;
+      if (headingId) {
+        requestAnimationFrame(() => {
+          const el = document.getElementById(headingId);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
+    });
+  }
+
+  const tocToggleBtn = document.getElementById("toc-toggle");
+  const tocPanel = document.getElementById("toc-panel");
+
+  tocToggleBtn?.addEventListener("click", () => {
+    const expanded = tocToggleBtn.getAttribute("aria-expanded") === "true";
+    tocToggleBtn.setAttribute("aria-expanded", String(!expanded));
+    tocPanel?.classList.toggle("open", !expanded);
+  });
 
   topicBtns.forEach((btn) => {
     btn.addEventListener("click", () => showTopic(btn.dataset.topic));

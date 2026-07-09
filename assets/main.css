@@ -769,7 +769,7 @@ a {
   background: color-mix(in srgb, var(--info), transparent 92%);
 }
 .callout-note .callout-label {
-  background: var(--info);
+  background: color-mix(in srgb, var(--info), black 25%);
   color: var(--info-fg);
 }
 
@@ -778,7 +778,7 @@ a {
   background: color-mix(in srgb, var(--success), transparent 92%);
 }
 .callout-tip .callout-label {
-  background: var(--success);
+  background: color-mix(in srgb, var(--success), black 25%);
   color: var(--success-fg);
 }
 
@@ -805,7 +805,7 @@ a {
   background: color-mix(in srgb, var(--destructive), transparent 90%);
 }
 .callout-danger .callout-label {
-  background: var(--destructive);
+  background: color-mix(in srgb, var(--destructive), black 25%);
   color: var(--destructive-fg);
 }
 
@@ -814,7 +814,7 @@ a {
   background: color-mix(in srgb, var(--info), transparent 92%);
 }
 .callout-info .callout-label {
-  background: var(--info);
+  background: color-mix(in srgb, var(--info), black 25%);
   color: var(--info-fg);
 }
 
@@ -823,7 +823,7 @@ a {
   background: color-mix(in srgb, var(--success), transparent 92%);
 }
 .callout-success .callout-label {
-  background: var(--success);
+  background: color-mix(in srgb, var(--success), black 25%);
   color: var(--success-fg);
 }
 
@@ -844,15 +844,15 @@ a {
 }
 .badge-danger {
   background: color-mix(in srgb, var(--destructive), transparent 80%);
-  color: var(--destructive-fg);
+  color: var(--destructive);
 }
 .badge-success {
   background: color-mix(in srgb, var(--success), transparent 80%);
-  color: var(--success-fg);
+  color: var(--success);
 }
 .badge-info {
   background: color-mix(in srgb, var(--info), transparent 80%);
-  color: var(--info-fg);
+  color: var(--info);
 }
 
 /* ── Table sticky header + hover ── */
