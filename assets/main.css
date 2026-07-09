@@ -1034,6 +1034,20 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   color: #fde047;
 }
 
+/* ── Reader mode toggle ── */
+.reader-toggle {
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+}
+.reader-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent-glow);
+}
+
+.prose[data-reader-size="sm"] { font-size: var(--text-sm); }
+.prose[data-reader-size="lg"] { font-size: var(--text-lg); }
+
 /* ── Misc ── */
 .prose hr {
   border: none;

@@ -341,6 +341,24 @@
 
   setTheme(getTheme());
 
+  /* ── Reader mode (font size toggle) ── */
+  const READER_KEY = `${STORAGE_PREFIX}-reader-size`;
+  const SIZES = ["sm", "base", "lg"];
+  function getReaderSize() {
+    const v = localStorage.getItem(READER_KEY);
+    return SIZES.includes(v) ? v : "base";
+  }
+  function applyReaderSize(v) {
+    viewportEl?.setAttribute("data-reader-size", v);
+    localStorage.setItem(READER_KEY, v);
+  }
+  const readerToggleBtn = document.getElementById("reader-toggle");
+  readerToggleBtn?.addEventListener("click", () => {
+    const i = SIZES.indexOf(getReaderSize());
+    applyReaderSize(SIZES[(i + 1) % SIZES.length]);
+  });
+  applyReaderSize(getReaderSize());
+
   navToggle?.addEventListener("click", () => {
     if (navPanel?.classList.contains("open")) closeMobileNav();
     else openMobileNav();

@@ -254,6 +254,7 @@ function renderPage(siteData, searchIndex) {
         </div>
         <div class="main-header-actions">
           <button type="button" class="icon-btn search-trigger" id="search-trigger" aria-label="검색 열기 (Ctrl+K)">🔍</button>
+          <button type="button" class="icon-btn reader-toggle" id="reader-toggle" aria-label="글자 크기 토글">A</button>
           <button type="button" class="icon-btn theme-toggle" id="theme-toggle" aria-label="테마 전환">
             <span class="theme-icon-dark" aria-hidden="true">☾</span>
             <span class="theme-icon-light" aria-hidden="true">☀</span>
