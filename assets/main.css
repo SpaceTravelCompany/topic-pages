@@ -1227,7 +1227,8 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
 }
 
 @media (min-width: 801px) {
-  .nav-backdrop {
+  .nav-backdrop,
+  .toc-backdrop {
     display: none !important;
   }
 }
@@ -1323,15 +1324,37 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   }
 }
 
-/* Mobile/show — toggle activation */
-.toc-panel.open {
-  display: block;
+/* Mobile: right-side drawer instead of full-screen */
+@media (max-width: 1199px) {
+  .toc-panel.open {
+    display: block;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: 260px;
+    max-width: 86vw;
+    z-index: 220;
+    background: var(--surface-elevated);
+    border-left: 1px solid var(--border);
+    box-shadow: var(--shadow-3);
+    overflow-y: auto;
+    padding: var(--space-5);
+  }
+}
+
+/* TOC backdrop (dim behind drawer) */
+.toc-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 220;
-  background: var(--surface-elevated);
-  overflow-y: auto;
-  padding: var(--space-5);
+  z-index: 215;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+}
+
+.toc-backdrop[hidden] {
+  display: none;
 }
 
 /* TOC toggle button (mobile only) */

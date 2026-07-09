@@ -256,12 +256,26 @@
 
   const tocToggleBtn = document.getElementById("toc-toggle");
   const tocPanel = document.getElementById("toc-panel");
+  const tocBackdrop = document.getElementById("toc-backdrop");
+
+  function closeToc() {
+    tocPanel?.classList.remove("open");
+    tocToggleBtn?.setAttribute("aria-expanded", "false");
+    tocBackdrop?.setAttribute("hidden", "");
+  }
 
   tocToggleBtn?.addEventListener("click", () => {
     const expanded = tocToggleBtn.getAttribute("aria-expanded") === "true";
     tocToggleBtn.setAttribute("aria-expanded", String(!expanded));
     tocPanel?.classList.toggle("open", !expanded);
+    if (expanded) {
+      tocBackdrop?.setAttribute("hidden", "");
+    } else {
+      tocBackdrop?.removeAttribute("hidden");
+    }
   });
+
+  tocBackdrop?.addEventListener("click", closeToc);
 
   // TOC click handler: registered once in main flow (not inside initToc)
   tocPanel?.addEventListener("click", (e) => {
@@ -271,8 +285,7 @@
     const idx = parseInt(a.dataset.sectionIdx, 10);
     showSection(idx);
     // Close mobile TOC
-    tocPanel.classList.remove("open");
-    document.getElementById("toc-toggle")?.setAttribute("aria-expanded", "false");
+    closeToc();
     // Scroll to sub-heading after section renders
     const headingId = a.dataset.headingId;
     if (headingId) {
@@ -314,6 +327,7 @@
       showSection(currentSection + 1);
     } else if (e.key === "Escape") {
       closeMobileNav();
+      closeToc();
     }
   });
 
@@ -324,6 +338,7 @@
 
   window.addEventListener("resize", () => {
     if (window.innerWidth > 800) closeMobileNav();
+    if (window.innerWidth >= 1200) closeToc();
   });
 
   const initial = parseHash();

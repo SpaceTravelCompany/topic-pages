@@ -242,6 +242,7 @@ function renderPage(siteData, searchIndex) {
   <a class="skip-link" href="#nav">주제 메뉴로 건너뛰기</a>
   <div class="app" id="app">
     <div class="nav-backdrop" id="nav-backdrop" hidden></div>
+    <div class="toc-backdrop" id="toc-backdrop" hidden></div>
     ${nav}
     <main class="main-panel" id="main" tabindex="-1">
       <header class="main-header">
