@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { renderMarkdown } from "../lib/markdown.js";
 import { splitMarkdownByH2 } from "../lib/sections.js";
 import { escapeHtml, slugify } from "../lib/html.js";
+import { buildSearchIndex } from "../lib/search-index.js";
 
 /**
  * 범용 정적 사이트 빌더.
@@ -206,11 +207,14 @@ async function buildSiteData(args) {
   return { site, topics };
 }
 
-function renderPage(siteData) {
+function renderPage(siteData, searchIndex) {
   const json = JSON.stringify(siteData).replace(/</g, "\\u003c");
   const nav = renderNav(siteData.site);
   const title = siteData.site?.title || "Site";
   const storagePrefix = escapeHtml(siteData.site?.storagePrefix || "topic-pages");
+  const searchIndexJson = searchIndex
+    ? `<script type="application/json" id="search-index">${JSON.stringify(searchIndex).replace(/</g, "\\u003c")}</script>\n`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="ko" data-theme="dark">
@@ -247,6 +251,7 @@ function renderPage(siteData) {
           <h1 class="main-title" id="section-title"></h1>
         </div>
         <div class="main-header-actions">
+          <button type="button" class="icon-btn search-trigger" id="search-trigger" aria-label="검색 열기 (Ctrl+K)">🔍</button>
           <button type="button" class="icon-btn theme-toggle" id="theme-toggle" aria-label="테마 전환">
             <span class="theme-icon-dark" aria-hidden="true">☾</span>
             <span class="theme-icon-light" aria-hidden="true">☀</span>
@@ -265,8 +270,21 @@ function renderPage(siteData) {
     </main>
     <aside class="toc-panel" id="toc-panel" aria-label="이 페이지 목차"></aside>
   </div>
+  ${searchIndexJson}
+  <div class="search-backdrop" id="search-backdrop" hidden></div>
+  <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-labelledby="search-input-label" hidden>
+    <label class="visually-hidden" id="search-input-label">검색</label>
+    <input type="search" class="search-input" id="search-input" placeholder="검색 (Ctrl+K)" autocomplete="off" spellcheck="false" />
+    <ul class="search-results" id="search-results" role="listbox" aria-label="검색 결과"></ul>
+    <div class="search-footer">
+      <span><kbd>↑</kbd><kbd>↓</kbd> 이동</span>
+      <span><kbd>Enter</kbd> 선택</span>
+      <span><kbd>Esc</kbd> 닫기</span>
+    </div>
+  </div>
   <script type="application/json" id="site-data">${json}</script>
   <script src="assets/prism.js"></script>
+  <script src="assets/vendor/minisearch.min.js"></script>
   <script src="assets/app.js"></script>
 </body>
 </html>`;
@@ -278,6 +296,7 @@ async function copyAssets(args) {
 
   const required = ["main.css", "prism.css", "prism.js", "app.js", "favicon.svg", "cc-by-nc-sa.svg"];
   const optional = ["custom.css", "custom.js"];
+  const vendorFiles = ["minisearch.min.js"];
 
   // 빌더 자신의 assets 디렉토리 (폴백용)
   const builderAssets = path.resolve(__dirname, "..", "assets");
@@ -306,6 +325,20 @@ async function copyAssets(args) {
       console.warn(`  warn: required asset not found in user or builder: ${file}`);
     }
   }
+
+  // Vendor files (optional — copy from builder assets only)
+  const destVendor = path.join(dest, "vendor");
+  await fs.mkdir(destVendor, { recursive: true });
+  const builderVendor = path.resolve(__dirname, "..", "assets", "vendor");
+  for (const file of vendorFiles) {
+    const src = path.join(builderVendor, file);
+    try {
+      await fs.access(src);
+      await fs.copyFile(src, path.join(destVendor, file));
+    } catch {
+      // vendor missing — non-fatal
+    }
+  }
 }
 
 async function main() {
@@ -320,7 +353,9 @@ async function main() {
   await fs.mkdir(args.out, { recursive: true });
 
   const siteData = await buildSiteData(args);
-  const page = renderPage(siteData);
+  const searchIndex = buildSearchIndex(siteData);
+  console.log(`  search index: ${searchIndex.records.length} records`);
+  const page = renderPage(siteData, searchIndex);
   await fs.writeFile(path.join(args.out, "index.html"), page, "utf-8");
   console.log("  index.html (SPA)");
 
