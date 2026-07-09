@@ -256,7 +256,9 @@ function renderPage(siteData, searchIndex) {
           <button type="button" class="icon-btn search-trigger" id="search-trigger" aria-label="검색 열기 (Ctrl+K)">🔍</button>
           <button type="button" class="icon-btn reader-toggle" id="reader-toggle" aria-label="글자 크기 토글">A</button>
           <button type="button" class="icon-btn theme-toggle" id="theme-toggle" aria-label="테마 전환">
-            <span class="theme-icon-dark" aria-hidden="true">☾</span>
+            <svg class="theme-icon-dark" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+            </svg>
             <span class="theme-icon-light" aria-hidden="true">☀</span>
           </button>
           <button type="button" class="toc-toggle" id="toc-toggle" aria-label="목차 토글" aria-controls="toc-panel" aria-expanded="false">☰ 목차</button>

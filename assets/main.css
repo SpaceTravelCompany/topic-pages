@@ -1027,11 +1027,30 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   display: inline;
 }
 
+/* Moon/sun colors — fixed yellows, NOT var(--warning), so dark mode stays yellow */
+:root {
+  --theme-moon: #fbbf24;
+  --theme-moon-hover: #fde047;
+  --theme-sun: #f59e0b;
+  --theme-sun-hover: #facc15;
+}
+
 .theme-toggle .theme-icon-dark {
-  color: var(--warning);
+  color: var(--theme-moon);
 }
 .theme-toggle:hover .theme-icon-dark {
-  color: #fde047;
+  color: var(--theme-moon-hover);
+}
+.theme-toggle .theme-icon-light {
+  color: var(--theme-sun);
+}
+.theme-toggle:hover .theme-icon-light {
+  color: var(--theme-sun-hover);
+}
+
+.theme-toggle svg {
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
 /* ── Reader mode toggle ── */
