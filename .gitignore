@@ -3,7 +3,6 @@ node_modules/
 
 # 빌드 결과
 dist/
-templates/**/dist/
 
 # 캐시/커버리지
 .build-cache/

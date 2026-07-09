@@ -13,9 +13,7 @@
     "topic-pages": "./bin/topic-pages.mjs"
   },
   "scripts": {
-    "build": "node scripts/build.mjs",
-    "self-test": "node scripts/build.mjs --site templates/example-vulkan-ref/site.json --content templates/example-vulkan-ref/content --assets templates/example-vulkan-ref/assets --out templates/example-vulkan-ref/dist",
-    "test": "npm run self-test"
+    "build": "node scripts/build.mjs"
   },
   "dependencies": {
     "marked": "^18.0.2"

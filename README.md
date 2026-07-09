@@ -81,16 +81,6 @@ node scripts/build.mjs [옵션]
 
 에셋 디렉토리에는 `main.css`, `prism.css`, `prism.js`, `app.js`, `favicon.svg`, `cc-by-nc-sa.svg` 6개 파일이 필요하다. 빌더가 `./assets`에서 복사한다.
 
-### 3. self-test
-
-이 저장소 자체에 `templates/example-vulkan-ref/` 예시가 들어 있다. 빌더가 정상 동작하는지 확인:
-
-```bash
-npm install
-npm test
-# → templates/example-vulkan-ref/dist/index.html 생성 확인
-```
-
 ## site.json 스키마
 
 ```jsonc
