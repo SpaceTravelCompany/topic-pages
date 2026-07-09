@@ -284,8 +284,6 @@
     e.preventDefault();
     const idx = parseInt(a.dataset.sectionIdx, 10);
     showSection(idx);
-    // Close mobile TOC
-    closeToc();
     // Scroll to sub-heading after section renders
     const headingId = a.dataset.headingId;
     if (headingId) {

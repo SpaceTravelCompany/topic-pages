@@ -1160,7 +1160,6 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   inset: 0;
   z-index: 200;
   background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(2px);
 }
 
 .nav-backdrop[hidden] {
@@ -1227,7 +1226,13 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
 }
 
 @media (min-width: 801px) {
-  .nav-backdrop,
+  .nav-backdrop {
+    display: none !important;
+  }
+}
+
+/* TOC backdrop hidden at ≥1200px where TOC is inline sticky */
+@media (min-width: 1200px) {
   .toc-backdrop {
     display: none !important;
   }
@@ -1350,7 +1355,6 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   inset: 0;
   z-index: 215;
   background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(2px);
 }
 
 .toc-backdrop[hidden] {
