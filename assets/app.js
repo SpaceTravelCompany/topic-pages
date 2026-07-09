@@ -289,7 +289,10 @@
     if (headingId) {
       requestAnimationFrame(() => {
         const el = document.getElementById(headingId);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        el.classList.add("anchor-flash");
+        setTimeout(() => el.classList.remove("anchor-flash"), 1500);
       });
     }
   });

@@ -1002,6 +1002,13 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   display: inline;
 }
 
+.theme-toggle .theme-icon-dark {
+  color: var(--warning);
+}
+.theme-toggle:hover .theme-icon-dark {
+  color: #fde047;
+}
+
 /* ── Misc ── */
 .prose hr {
   border: none;
@@ -1571,4 +1578,19 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
 /* ── Prose heading anchor target ── */
 .prose :target {
   scroll-margin-top: 1rem;
+}
+
+.prose :is(h2, h3, h4):target,
+.prose :is(h2, h3, h4).anchor-flash {
+  outline: 3px solid var(--brand);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+  animation: anchor-flash-fade 1.5s ease-out forwards;
+}
+@keyframes anchor-flash-fade {
+  0%   { outline-color: var(--brand); background: color-mix(in srgb, var(--brand), transparent 90%); }
+  100% { outline-color: transparent; background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .prose :is(h2, h3, h4).anchor-flash { animation: none; outline: 1px solid var(--brand); }
 }
