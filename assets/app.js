@@ -297,6 +297,39 @@
     }
   });
 
+  /* ── Sidebar nav group collapse ── */
+  const navGroupsEl = document.querySelectorAll(".nav-group");
+  const COLLAPSE_KEY = `${STORAGE_PREFIX}-collapsed-groups`;
+  function getCollapsed() {
+    try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "[]"); }
+    catch { return []; }
+  }
+  function setCollapsed(arr) {
+    try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(arr)); }
+    catch {}
+  }
+  function applyCollapsed() {
+    const collapsed = new Set(getCollapsed());
+    navGroupsEl.forEach((g, i) => {
+      const id = g.dataset.groupId || String(i);
+      g.classList.toggle("collapsed", collapsed.has(id));
+    });
+  }
+  applyCollapsed();
+  navGroupsEl.forEach((g, i) => {
+    const label = g.querySelector(".nav-group-label");
+    if (!label) return;
+    const id = g.dataset.groupId || String(i);
+    label.addEventListener("click", (e) => {
+      e.preventDefault();
+      const arr = getCollapsed();
+      const set = new Set(arr);
+      if (set.has(id)) set.delete(id); else set.add(id);
+      setCollapsed([...set]);
+      applyCollapsed();
+    });
+  });
+
   topicBtns.forEach((btn) => {
     btn.addEventListener("click", () => showTopic(btn.dataset.topic));
   });

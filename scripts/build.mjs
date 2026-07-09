@@ -149,7 +149,8 @@ function renderNav(site) {
 </button>`;
         })
         .join("");
-      return `<div class="nav-group">
+      const groupId = section.id || slugify(section.title, { maxLength: 40 });
+      return `<div class="nav-group" data-group-id="${escapeHtml(groupId)}">
   <p class="nav-group-label">${escapeHtml(section.title)}</p>
   <div class="nav-group-btns">${buttons}</div>
 </div>`;

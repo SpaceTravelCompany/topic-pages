@@ -360,6 +360,31 @@ a {
   padding: 0.5rem 0.65rem 0;
 }
 
+.nav-group-btns { overflow: hidden; }
+.nav-group.collapsed .nav-group-btns {
+  display: none;
+}
+.nav-group-label {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+.nav-group-label::after {
+  content: "▾";
+  position: absolute;
+  right: 0.5rem;
+  top: 0;
+  font-size: 0.9em;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+}
+.nav-group.collapsed .nav-group-label::after {
+  content: "▸";
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-group-label::after { transition: none; }
+}
+
 .nav-group-label {
   margin: 0 0 0.35rem 0.35rem;
   font-size: var(--text-xs);
