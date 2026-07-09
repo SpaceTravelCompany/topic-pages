@@ -158,7 +158,7 @@ function renderNav(site) {
   const title = site.title || "Site";
   const brand = (site.brandMark || title).slice(0, 2);
 
-  return `<nav class="nav-panel" aria-label="주제">
+  return `<nav class="nav-panel" id="nav" aria-label="주제">
   <div class="nav-brand">
     <div class="brand-btn">
       <span class="brand-mark">${escapeHtml(brand)}</span>
@@ -232,10 +232,12 @@ function renderPage(siteData) {
   <link rel="stylesheet" href="assets/prism.css">
 </head>
 <body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <a class="skip-link" href="#nav">주제 메뉴로 건너뛰기</a>
   <div class="app" id="app">
     <div class="nav-backdrop" id="nav-backdrop" hidden></div>
     ${nav}
-    <main class="main-panel" id="main-panel">
+    <main class="main-panel" id="main" tabindex="-1">
       <header class="main-header">
         <button type="button" class="icon-btn nav-toggle" id="nav-toggle" aria-label="주제 메뉴">☰</button>
         <div class="main-header-text">

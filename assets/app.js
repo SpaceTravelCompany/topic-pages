@@ -4,7 +4,7 @@
 
   const { site, topics } = JSON.parse(dataEl.textContent);
 
-  const mainPanel = document.getElementById("main-panel");
+  const mainPanel = document.getElementById("main");
   const eyebrowEl = document.getElementById("topic-eyebrow");
   const sectionTitleEl = document.getElementById("section-title");
   const tabsEl = document.getElementById("section-tabs");

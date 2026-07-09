@@ -192,6 +192,33 @@ html[data-theme="dark"] {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
   }
+
+  .skip-link {
+    transition: none;
+  }
+}
+
+/* ── Skip-link (a11y) ── */
+.skip-link {
+  position: absolute;
+  inset-inline-start: 0.5rem;
+  top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-elevated);
+  color: var(--primary);
+  border: 2px solid var(--ring);
+  border-radius: var(--radius-md);
+  z-index: 999;
+  transform: translateY(-150%);
+  transition: transform 0.18s ease;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: none;
 }
 
 /* ── Scrollbars ── */
