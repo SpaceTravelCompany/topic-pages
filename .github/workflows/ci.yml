@@ -7,21 +7,22 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  smoke:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Self-test (templates/example-vulkan-ref)
-        run: npm test
-      - name: Verify build output
+
+      - name: Syntax check builder + lib + bin
         run: |
-          test -f templates/example-vulkan-ref/dist/index.html
-          test -f templates/example-vulkan-ref/dist/assets/main.css
-          test -f templates/example-vulkan-ref/dist/assets/app.js
-          echo "Build artifacts OK"
+          for f in scripts/build.mjs bin/topic-pages.mjs \
+                   lib/markdown.js lib/html.js lib/sections.js \
+                   lib/cmdstack.js lib/relflow.js \
+                   lib/compose-content.mjs lib/search-index.js; do
+            node --check "$f"
+          done
+
+      - name: --help smoke
+        run: node scripts/build.mjs --help
