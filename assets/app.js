@@ -39,9 +39,21 @@
 
   function highlightCode() {
     if (typeof Prism === "undefined") return;
-    viewportEl.querySelectorAll("pre code").forEach((block) => {
-      Prism.highlightElement(block);
-    });
+    const blocks = viewportEl.querySelectorAll("pre code");
+    if (!blocks.length) return;
+    const arr = Array.from(blocks);
+    let i = 0;
+    const CHUNK = 8;
+    function processChunk() {
+      const end = Math.min(i + CHUNK, arr.length);
+      for (; i < end; i++) {
+        Prism.highlightElement(arr[i]);
+      }
+      if (i < arr.length) {
+        requestAnimationFrame(processChunk);
+      }
+    }
+    requestAnimationFrame(processChunk);
   }
 
   function updateHash() {
@@ -90,7 +102,8 @@
 
     viewportEl.innerHTML = section?.html ?? "";
     viewportEl.scrollTop = 0;
-    highlightCode();
+    // Defer code highlighting to next frame — user sees content immediately
+    requestAnimationFrame(highlightCode);
 
     const total = topic.sections.length;
     counterEl.textContent = total ? `${currentSection + 1} / ${total}` : "";
@@ -228,26 +241,6 @@
     });
 
     panel.appendChild(ul);
-
-    // Click handler: navigate to section via showSection, then optionally scroll to sub-heading
-    panel.addEventListener("click", (e) => {
-      const a = e.target.closest("a[data-section-idx]");
-      if (!a) return;
-      e.preventDefault();
-      const idx = parseInt(a.dataset.sectionIdx, 10);
-      showSection(idx);
-      // Close mobile TOC
-      panel.classList.remove("open");
-      document.getElementById("toc-toggle")?.setAttribute("aria-expanded", "false");
-      // Scroll to sub-heading after section renders
-      const headingId = a.dataset.headingId;
-      if (headingId) {
-        requestAnimationFrame(() => {
-          const el = document.getElementById(headingId);
-          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-      }
-    });
   }
 
   const tocToggleBtn = document.getElementById("toc-toggle");
@@ -257,6 +250,26 @@
     const expanded = tocToggleBtn.getAttribute("aria-expanded") === "true";
     tocToggleBtn.setAttribute("aria-expanded", String(!expanded));
     tocPanel?.classList.toggle("open", !expanded);
+  });
+
+  // TOC click handler: registered once in main flow (not inside initToc)
+  tocPanel?.addEventListener("click", (e) => {
+    const a = e.target.closest("a[data-section-idx]");
+    if (!a) return;
+    e.preventDefault();
+    const idx = parseInt(a.dataset.sectionIdx, 10);
+    showSection(idx);
+    // Close mobile TOC
+    tocPanel.classList.remove("open");
+    document.getElementById("toc-toggle")?.setAttribute("aria-expanded", "false");
+    // Scroll to sub-heading after section renders
+    const headingId = a.dataset.headingId;
+    if (headingId) {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(headingId);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
   });
 
   topicBtns.forEach((btn) => {
