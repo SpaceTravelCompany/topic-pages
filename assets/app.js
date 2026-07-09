@@ -138,6 +138,9 @@
     renderSectionTabs();
     setActiveNav();
     updateHash();
+
+    // Rebuild TOC for current topic (all sections)
+    initToc(topic.sections);
   }
 
   function showTopic(slug, sectionId) {
@@ -167,6 +170,161 @@
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;");
   }
+
+  /* ── Copy code button (event delegation) ── */
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".copy-code-btn");
+    if (!btn) return;
+    const toolbar = btn.closest(".code-toolbar");
+    if (!toolbar) return;
+    const code = toolbar.querySelector("code");
+    const text = code?.innerText ?? "";
+    const toast = toolbar.querySelector(".copy-toast");
+
+    function show(msg, ok) {
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.classList.add("show");
+      btn.classList.toggle("success", ok);
+      setTimeout(() => {
+        toast.classList.remove("show");
+        btn.classList.remove("success");
+      }, 1600);
+    }
+
+    // 1st: Clipboard API
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        show("복사됨", true);
+        return;
+      } catch { /* fall through */ }
+    }
+    // 2nd: file:// fallback (execCommand)
+    try {
+      const range = document.createRange();
+      range.selectNode(code);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      const ok = document.execCommand("copy");
+      sel.removeAllRanges();
+      show(ok ? "복사됨" : "Ctrl+C로 복사해 주세요", ok);
+    } catch {
+      show("Ctrl+C로 복사해 주세요", false);
+    }
+  });
+
+  /* ── TOC ── */
+  let tocObserver = null;
+
+  function clearToc() {
+    const panel = document.getElementById("toc-panel");
+    if (panel) panel.innerHTML = "";
+    if (tocObserver) {
+      tocObserver.disconnect();
+      tocObserver = null;
+    }
+  }
+
+  function initToc(sections) {
+    clearToc();
+    const panel = document.getElementById("toc-panel");
+    if (!panel || !sections || sections.length === 0) return;
+
+    const ul = document.createElement("ul");
+
+    sections.forEach((sec) => {
+      // Section h2
+      const li = document.createElement("li");
+      li.className = "depth-2";
+      const a = document.createElement("a");
+      a.href = "#" + sec.id;
+      a.dataset.tocTarget = sec.id;
+      a.textContent = sec.title;
+      li.appendChild(a);
+      ul.appendChild(li);
+
+      // h3/h4 within section
+      if (sec.headings) {
+        sec.headings.forEach((h) => {
+          if (h.depth < 3) return; // skip the virtual h2 (already added)
+          const subLi = document.createElement("li");
+          subLi.className = "depth-" + h.depth;
+          const subA = document.createElement("a");
+          subA.href = "#" + h.id;
+          subA.dataset.tocTarget = h.id;
+          subA.textContent = h.text;
+          subLi.appendChild(subA);
+          ul.appendChild(subLi);
+        });
+      }
+    });
+
+    panel.appendChild(ul);
+
+    // IntersectionObserver for active heading
+    const headingIds = sections.flatMap((sec) => {
+      const ids = [sec.id];
+      if (sec.headings) {
+        ids.push(...sec.headings.filter((h) => h.depth >= 3).map((h) => h.id));
+      }
+      return ids;
+    });
+
+    if (headingIds.length === 0) return;
+
+    const links = panel.querySelectorAll("a[data-toc-target]");
+
+    tocObserver = new IntersectionObserver(
+      (entries) => {
+        let activeId = null;
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) activeId = entry.target.id;
+        });
+        if (!activeId) {
+          // Pick the first visible heading above viewport
+          for (const entry of entries) {
+            if (entry.boundingClientRect.top < 120) activeId = entry.target.id;
+          }
+        }
+        links.forEach((link) => {
+          link.classList.toggle("active", link.dataset.tocTarget === activeId);
+        });
+      },
+      { rootMargin: "-80px 0px -60% 0px", threshold: 0 },
+    );
+
+    headingIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) tocObserver.observe(el);
+    });
+
+    // Click handler: smooth scroll + hash
+    panel.addEventListener("click", (e) => {
+      const a = e.target.closest("a[data-toc-target]");
+      if (!a) return;
+      e.preventDefault();
+      const id = a.dataset.tocTarget;
+      const target = document.getElementById(id);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        history.replaceState(null, "", `#${currentTopic}/${id}`);
+      }
+      // Close mobile TOC
+      panel.classList.remove("open");
+      document.getElementById("toc-toggle")?.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  const tocToggleBtn = document.getElementById("toc-toggle");
+  const tocPanel = document.getElementById("toc-panel");
+
+  tocToggleBtn?.addEventListener("click", () => {
+    const expanded = tocToggleBtn.getAttribute("aria-expanded") === "true";
+    tocToggleBtn.setAttribute("aria-expanded", String(!expanded));
+    tocPanel?.classList.toggle("open", !expanded);
+  });
 
   topicBtns.forEach((btn) => {
     btn.addEventListener("click", () => showTopic(btn.dataset.topic));

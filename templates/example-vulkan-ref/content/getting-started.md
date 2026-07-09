@@ -45,3 +45,14 @@ info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 |------|------|
 | 값1 | 값2 |
 | 값3 | 값4 |
+
+## 콜아웃 예시
+
+> [!WARNING]
+> 이 API는 DEPRECATED 입니다. 새 프로젝트에서는 `vkCmdDrawIndexed2` 사용을 권장합니다.
+
+> [!NOTE]
+> 이 문서는 topic-pages 빌더의 자체 검증 예시입니다.
+
+> [!TIP]
+> [!badge-success:New] 콜아웃 내부에 배지를 함께 사용할 수 있습니다.
