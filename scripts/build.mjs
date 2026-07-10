@@ -70,6 +70,7 @@ function parseArgs(argv) {
     content: path.join(cwd, "content"),
     out: path.join(cwd, "dist"),
     assets: path.join(cwd, "assets"),
+    baseUrl: "",
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -77,13 +78,17 @@ function parseArgs(argv) {
     else if (a === "--content") args.content = path.resolve(argv[++i]);
     else if (a === "--out") args.out = path.resolve(argv[++i]);
     else if (a === "--assets") args.assets = path.resolve(argv[++i]);
+    else if (a === "--base-url") args.baseUrl = argv[++i];
     else if (a === "--help" || a === "-h") {
-      console.log(`Usage: node scripts/build.mjs [--site <path>] [--content <path>] [--out <path>] [--assets <path>]`);
+      console.log(`Usage: node scripts/build.mjs [--site <path>] [--content <path>] [--out <path>] [--assets <path>] [--base-url <url>]`);
       process.exit(0);
     }
   }
   return args;
 }
+
+function assetPath(p, depth) { return `${depth ? "../" : ""}${p}`; }
+function linkToSlug(slug, depth) { return `${depth ? "../" : ""}${slug}/`; }
 
 function parseFrontmatter(raw) {
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
@@ -208,14 +213,19 @@ async function buildSiteData(args) {
   return { site, topics };
 }
 
-function renderPage(siteData, searchIndex) {
-  const json = JSON.stringify(siteData).replace(/</g, "\\u003c");
-  const nav = renderNav(siteData.site);
-  const title = siteData.site?.title || "Site";
-  const storagePrefix = escapeHtml(siteData.site?.storagePrefix || "topic-pages");
-  const searchIndexJson = searchIndex
-    ? `<script type="application/json" id="search-index">${JSON.stringify(searchIndex).replace(/</g, "\\u003c")}</script>\n`
+function pageShell(opts) {
+  const { site, title, description, canonicalUrl, bodyHtml, siteDataJson, searchIndexJson, depth, topicSlug } = opts;
+  const storagePrefix = escapeHtml(site?.storagePrefix || "topic-pages");
+  const nav = renderNav(site);
+  const asset = (p) => assetPath(p, depth);
+
+  const canonicalTag = canonicalUrl
+    ? `  <link rel="canonical" href="${canonicalUrl}">\n  <meta property="og:url" content="${canonicalUrl}">`
     : "";
+  const ogMeta = description
+    ? `  <meta property="og:title" content="${escapeHtml(title)}">\n  <meta property="og:description" content="${escapeHtml(description)}">\n  <meta property="og:type" content="${depth ? "article" : "website"}">`
+    : "";
+  const descMeta = description ? `  <meta name="description" content="${escapeHtml(description)}">` : "";
 
   return `<!DOCTYPE html>
 <html lang="ko" data-theme="dark">
@@ -223,7 +233,10 @@ function renderPage(siteData, searchIndex) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)}</title>
-  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+${descMeta}
+${canonicalTag}
+${ogMeta}
+  <link rel="icon" type="image/svg+xml" href="${asset("assets/favicon.svg")}">
   <script>
     (function () {
       var key = "${storagePrefix}-theme";
@@ -235,10 +248,10 @@ function renderPage(siteData, searchIndex) {
       document.documentElement.dataset.theme = theme;
     })();
   </script>
-  <link rel="stylesheet" href="assets/main.css">
-  <link rel="stylesheet" href="assets/prism.css">
+  <link rel="stylesheet" href="${asset("assets/main.css")}">
+  <link rel="stylesheet" href="${asset("assets/prism.css")}">
 </head>
-<body>
+<body${topicSlug ? ` data-topic-slug="${escapeHtml(topicSlug)}"` : ""}>
   <a class="skip-link" href="#main">본문으로 건너뛰기</a>
   <a class="skip-link" href="#nav">주제 메뉴로 건너뛰기</a>
   <div class="app" id="app">
@@ -249,7 +262,7 @@ function renderPage(siteData, searchIndex) {
       <header class="main-header">
         <button type="button" class="icon-btn nav-toggle" id="nav-toggle" aria-label="주제 메뉴">☰</button>
         <div class="main-header-text">
-          <p class="main-eyebrow" id="topic-eyebrow">${escapeHtml(title)}</p>
+          <p class="main-eyebrow" id="topic-eyebrow">${escapeHtml(site?.title || "")}</p>
           <h1 class="main-title" id="section-title"></h1>
         </div>
         <div class="main-header-actions">
@@ -270,7 +283,7 @@ function renderPage(siteData, searchIndex) {
           <button type="button" class="icon-btn sec-nav-btn" id="sec-next" disabled aria-label="다음 섹션">›</button>
         </div>
       </header>
-      <article class="content-viewport prose" id="content-viewport" role="tabpanel"></article>
+      ${bodyHtml}
     </main>
     <aside class="toc-panel" id="toc-panel" aria-label="이 페이지 목차"></aside>
   </div>
@@ -286,11 +299,132 @@ function renderPage(siteData, searchIndex) {
       <span><kbd>Esc</kbd> 닫기</span>
     </div>
   </div>
-  <script type="application/json" id="site-data">${json}</script>
-  <script src="assets/prism.js"></script>
-  <script src="assets/app.js"></script>
+  <script type="application/json" id="site-data">${siteDataJson}</script>
+  <script src="${asset("assets/prism.js")}"></script>
+  <script src="${asset("assets/app.js")}"></script>
 </body>
 </html>`;
+}
+
+function renderLanding(siteData, searchIndex) {
+  const site = siteData.site;
+  const topics = siteData.topics;
+  const sections = site.sections || [];
+  const depth = 0;
+  const baseUrl = site.baseUrl || "";
+
+  const sectionGroupsHtml = sections
+    .map((section) => {
+      const cards = (section.topics || [])
+        .map((topic) => {
+          const meta = topics[topic.slug];
+          const summary = topic.summary || meta?.summary || "";
+          return `    <a class="topic-card" href="${linkToSlug(topic.slug, depth)}">
+      <p class="topic-card-group">${escapeHtml(section.title)}</p>
+      <h3 class="topic-card-title">${topic.icon ? escapeHtml(topic.icon) + " " : ""}${escapeHtml(topic.title)}</h3>
+      ${summary ? `<p class="topic-card-summary">${escapeHtml(summary)}</p>` : ""}
+    </a>`;
+        })
+        .join("\n");
+
+      return `  <section class="landing-section">
+    <h2 class="landing-section-title">${escapeHtml(section.title)}</h2>
+    <div class="landing-grid">
+${cards}
+    </div>
+  </section>`;
+    })
+    .join("\n");
+
+  const bodyHtml = `    <article class="content-viewport prose" id="content-viewport" role="tabpanel">
+  <p class="landing-subtitle">${escapeHtml(site.subtitle || "")}</p>
+${sectionGroupsHtml}
+    </article>`;
+
+  const siteDataForJson = JSON.stringify({ site, topics: {} }).replace(/</g, "\\u003c");
+  const searchIndexJson = searchIndex
+    ? `<script type="application/json" id="search-index">${JSON.stringify(searchIndex).replace(/</g, "\\u003c")}</script>\n`
+    : "";
+
+  return pageShell({
+    site,
+    title: site.title || "Site",
+    description: site.subtitle || "",
+    canonicalUrl: baseUrl ? `${baseUrl}/` : "",
+    bodyHtml,
+    siteDataJson: siteDataForJson,
+    searchIndexJson,
+    depth,
+  });
+}
+
+function renderTopicPage(siteData, topics, slug, searchIndex) {
+  const site = siteData.site;
+  const topic = topics[slug];
+  if (!topic) throw new Error(`Unknown topic slug: ${slug}`);
+  const depth = 1;
+  const baseUrl = site.baseUrl || "";
+
+  const sectionsHtml = topic.sections
+    .map((section, idx) => {
+      const hidden = idx > 0 ? ' hidden' : '';
+      return `      <section class="topic-section" data-section-idx="${idx}" id="${escapeHtml(section.id)}"${hidden}>
+        <h2 class="topic-section-title">${escapeHtml(section.title)}</h2>
+        ${section.html}
+      </section>`;
+    })
+    .join("\n");
+
+  const bodyHtml = `    <article class="content-viewport prose" id="content-viewport" role="tabpanel">
+${sectionsHtml}
+    </article>`;
+
+  const siteDataForJson = JSON.stringify({
+    site,
+    topics: { [slug]: topics[slug] },
+  }).replace(/</g, "\\u003c");
+
+  const searchIndexJson = searchIndex
+    ? `<script type="application/json" id="search-index">${JSON.stringify(searchIndex).replace(/</g, "\\u003c")}</script>\n`
+    : "";
+
+  const canonicalUrl = baseUrl ? `${baseUrl}/${slug}/` : "";
+
+  return pageShell({
+    site,
+    title: `${topic.title} — ${site.title}`,
+    description: topic.summary || "",
+    canonicalUrl,
+    bodyHtml,
+    siteDataJson: siteDataForJson,
+    searchIndexJson,
+    depth,
+    topicSlug: slug,
+  });
+}
+
+function render404(siteData) {
+  const site = siteData.site;
+  const depth = 0;
+
+  const bodyHtml = `    <article class="content-viewport prose" id="content-viewport" role="tabpanel">
+      <h1 class="topic-section-title" style="margin-top:2rem">주제를 찾을 수 없습니다</h1>
+      <p>요청하신 페이지는 존재하지 않거나 다른 위치로 이동했을 수 있습니다.</p>
+      <p><a href="${linkToSlug("", depth)}">메인 페이지로 돌아가기</a></p>
+    </article>`;
+
+  const siteDataForJson = JSON.stringify({ site, topics: {} }).replace(/</g, "\\u003c");
+
+  return pageShell({
+    site,
+    title: `404 — ${site.title}`,
+    description: "",
+    canonicalUrl: "",
+    bodyHtml,
+    siteDataJson: siteDataForJson,
+    searchIndexJson: "",
+    depth,
+  });
 }
 
 async function copyAssets(args) {
@@ -336,16 +470,35 @@ async function main() {
   console.log(`  content: ${args.content}`);
   console.log(`  out:     ${args.out}`);
   console.log(`  assets:  ${args.assets}`);
+  if (args.baseUrl) console.log(`  baseUrl: ${args.baseUrl}`);
 
   await fs.rm(args.out, { recursive: true, force: true });
   await fs.mkdir(args.out, { recursive: true });
 
   const siteData = await buildSiteData(args);
+  // Merge baseUrl from CLI arg > site.json > ""
+  siteData.site.baseUrl = args.baseUrl || siteData.site.baseUrl || "";
+
+  const slugs = Object.keys(siteData.topics);
   const searchIndex = buildSearchIndex(siteData);
   console.log(`  search index: ${searchIndex.records.length} records`);
-  const page = renderPage(siteData, searchIndex);
-  await fs.writeFile(path.join(args.out, "index.html"), page, "utf-8");
-  console.log("  index.html (SPA)");
+
+  // Landing
+  const landing = renderLanding(siteData, searchIndex);
+  await fs.writeFile(path.join(args.out, "index.html"), landing, "utf-8");
+  console.log("  index.html (landing)");
+
+  // Topic pages
+  for (const slug of slugs) {
+    await fs.mkdir(path.join(args.out, slug), { recursive: true });
+    const page = renderTopicPage(siteData, siteData.topics, slug, searchIndex);
+    await fs.writeFile(path.join(args.out, slug, "index.html"), page, "utf-8");
+    console.log(`  ${slug}/index.html`);
+  }
+
+  // 404 fallback
+  await fs.writeFile(path.join(args.out, "404.html"), render404(siteData), "utf-8");
+  console.log("  404.html");
 
   await copyAssets(args);
   console.log(`\nBuild complete → ${args.out}`);

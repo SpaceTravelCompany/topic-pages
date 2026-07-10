@@ -48,6 +48,8 @@
   --brand: #7c3aed;
   --brand: oklch(0.541 0.247 293.0);
 
+  --card-bg: color-mix(in srgb, var(--surface-elevated) 85%, var(--background) 15%);
+
   /* Legacy aliases — backward compat, map to new tokens.
      Step-by-step migration: replace with new tokens directly. */
   --bg: var(--background);
@@ -1694,4 +1696,70 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
 }
 @media (prefers-reduced-motion: reduce) {
   .prose :is(h2, h3, h4).anchor-flash { animation: none; outline: 1px solid var(--brand); }
+}
+
+/* ── Topic sections (SSG/MPA) ── */
+.topic-section {
+  scroll-margin-top: 80px;
+}
+.topic-section[hidden] { display: none; }
+.topic-section-title {
+  margin: 0 0 1.25rem;
+  font-size: 1.25em;
+  font-weight: 600;
+}
+
+/* ── Landing page ── */
+.landing-subtitle {
+  margin: 0 0 1rem;
+  color: var(--muted-fg);
+  font-size: var(--text-base);
+}
+.landing-section { margin-bottom: 2rem; }
+.landing-section-title {
+  font-size: var(--text-base);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted-fg);
+  margin: 1.5rem 0 0.75rem;
+  font-weight: 600;
+}
+.landing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.topic-card {
+  display: block;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.topic-card:hover,
+.topic-card:focus-visible {
+  border-color: var(--link);
+  transform: translateY(-1px);
+}
+.topic-card-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin: 0 0 .25rem;
+  color: var(--text);
+}
+.topic-card-group {
+  font-size: var(--text-xs);
+  color: var(--muted-fg);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin: 0 0 .5rem;
+}
+.topic-card-summary {
+  color: var(--muted-fg);
+  font-size: var(--text-sm);
+  margin: .25rem 0 0;
 }

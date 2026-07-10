@@ -19,7 +19,9 @@
   const THEME_KEY = `${STORAGE_PREFIX}-theme`;
   const themeToggleBtn = document.getElementById("theme-toggle");
 
-  const defaultTopic = site.sections[0]?.topics[0]?.slug ?? "";
+  const topicSlugs = Object.keys(topics);
+  const topicSlugFromBody = document.body.dataset.topicSlug;
+  const defaultTopic = topicSlugFromBody || topicSlugs[0] || "";
 
   let currentTopic = defaultTopic;
   let currentSection = 0;
@@ -59,7 +61,7 @@
   function updateHash() {
     const topic = topics[currentTopic];
     const section = topic?.sections[currentSection];
-    const hash = section ? `#${currentTopic}/${section.id}` : `#${currentTopic}`;
+    const hash = section ? `#${section.id}` : "";
     if (location.hash !== hash) {
       history.replaceState(null, "", hash);
     }
@@ -67,15 +69,7 @@
 
   function parseHash() {
     const raw = location.hash.replace(/^#/, "");
-    if (!raw || raw === "_home") return { topic: defaultTopic, sectionId: null };
-
-    const slash = raw.indexOf("/");
-    if (slash === -1) return { topic: raw, sectionId: null };
-
-    return {
-      topic: raw.slice(0, slash),
-      sectionId: raw.slice(slash + 1),
-    };
+    return { sectionId: raw || null };
   }
 
   function closeMobileNav() {
@@ -94,63 +88,33 @@
     });
   }
 
-  function renderContent() {
+  function applySection(idx) {
     const topic = topics[currentTopic];
     if (!topic) return;
+    const sections = viewportEl.querySelectorAll(".topic-section");
+    if (!sections[idx]) return;
+    sections.forEach((s, i) => s.toggleAttribute("hidden", i !== idx));
+    currentSection = idx;
 
-    const section = topic.sections[currentSection];
-    if (!section) return;
-
-    // Preserve scroll ratio across section navigation
-    const prevHeight = viewportEl.scrollHeight || 1;
-    const prevPct = viewportEl.scrollTop / prevHeight;
-
-    viewportEl.innerHTML = section.html;
-
-    // Restore scroll position by ratio, clamped to valid range
-    const maxScroll = viewportEl.scrollHeight - viewportEl.clientHeight;
-    viewportEl.scrollTop = maxScroll > 0
-      ? Math.max(0, Math.min(maxScroll, prevPct * viewportEl.scrollHeight))
-      : 0;
-
-    // Defer code highlighting to next frame — user sees content immediately
-    requestAnimationFrame(highlightCode);
-
-    const total = topic.sections.length;
-    counterEl.textContent = total ? `${currentSection + 1} / ${total}` : "";
-    prevBtn.disabled = currentSection <= 0;
-    nextBtn.disabled = currentSection >= total - 1;
-
+    const section = topic.sections[idx];
     eyebrowEl.textContent = topic.title;
     sectionTitleEl.textContent = section?.title ?? topic.title;
     document.title = `${section?.title ?? topic.title} — ${site.title}`;
 
+    const total = topic.sections.length;
+    counterEl.textContent = total ? `${idx + 1} / ${total}` : "";
+    prevBtn.disabled = idx <= 0;
+    nextBtn.disabled = idx >= total - 1;
+
     setActiveNav();
     updateHash();
 
-    // Rebuild TOC for current topic (all sections)
     initToc(topic.sections);
-  }
-
-  function showTopic(slug, sectionId) {
-    if (!topics[slug]) slug = defaultTopic;
-    currentTopic = slug;
-
-    let idx = 0;
-    if (sectionId) {
-      const found = topics[slug].sections.findIndex((s) => s.id === sectionId);
-      if (found >= 0) idx = found;
-    }
-    currentSection = idx;
-    closeMobileNav();
-    renderContent();
+    requestAnimationFrame(highlightCode);
   }
 
   function showSection(index) {
-    const topic = topics[currentTopic];
-    if (!topic || index < 0 || index >= topic.sections.length) return;
-    currentSection = index;
-    renderContent();
+    applySection(index);
   }
 
   function escapeHtml(text) {
@@ -206,7 +170,7 @@
 
   /* ── TOC (section-per-view model) ──
      Each TOC anchor stores the section index. Click navigates via showSection()
-     instead of scrolling DOM headings (which don't exist for non-current sections).
+     which toggles sections by hidden attribute.
   */
 
   function clearToc() {
@@ -331,7 +295,13 @@
   });
 
   topicBtns.forEach((btn) => {
-    btn.addEventListener("click", () => showTopic(btn.dataset.topic));
+    btn.addEventListener("click", (e) => {
+      const target = btn.dataset.topic;
+      const current = document.body.dataset.topicSlug;
+      if (target === current) return;
+      const depth = current ? 1 : 0;
+      window.location.assign(depth ? `../${target}/` : `${target}/`);
+    });
   });
 
   themeToggleBtn?.addEventListener("click", () => {
@@ -384,8 +354,11 @@
   });
 
   window.addEventListener("hashchange", () => {
-    const { topic, sectionId } = parseHash();
-    showTopic(topic, sectionId);
+    const { sectionId } = parseHash();
+    if (sectionId && topics[currentTopic]) {
+      const idx = topics[currentTopic].sections.findIndex((s) => s.id === sectionId);
+      if (idx >= 0) applySection(idx);
+    }
   });
 
   window.addEventListener("resize", () => {
@@ -393,8 +366,14 @@
     if (window.innerWidth >= 1200) closeToc();
   });
 
+  // Boot: parse hash and apply initial section (landing has no sections, gracefully no-op)
   const initial = parseHash();
-  showTopic(initial.topic, initial.sectionId);
+  let initialIdx = 0;
+  if (initial.sectionId && currentTopic && topics[currentTopic]) {
+    initialIdx = topics[currentTopic].sections.findIndex((s) => s.id === initial.sectionId);
+    if (initialIdx < 0) initialIdx = 0;
+  }
+  applySection(initialIdx);
 
   /* ── Search modal ── */
   const searchTrigger = document.getElementById("search-trigger");
@@ -579,9 +558,28 @@
     renderSearchResults(results, query);
   }
 
-  function jumpToMatch(slug, sectionId, query) {
+  function navigateToResult(targetSlug, sectionId, query) {
     closeSearchModal();
-    showTopic(slug, sectionId);
+    var currentSlug = document.body.dataset.topicSlug;
+    if (targetSlug === currentSlug && sectionId) {
+      var idx = -1;
+      if (topics[targetSlug]) {
+        idx = topics[targetSlug].sections.findIndex(function (s) { return s.id === sectionId; });
+      }
+      if (idx >= 0) {
+        applySection(idx);
+        jumpToHighlight(query);
+        return;
+      }
+    }
+    // Cross-topic navigation (or fallback)
+    var depth = currentSlug ? 1 : 0;
+    var url = (depth ? "../" : "") + targetSlug + "/" + (sectionId ? "#" + sectionId : "");
+    window.location.assign(url);
+  }
+
+  function jumpToHighlight(query) {
+    if (!query) return;
     requestAnimationFrame(function () {
       var root = document.getElementById("content-viewport");
       if (!root || !query) return;
@@ -666,7 +664,7 @@
       var items = searchResults.querySelectorAll(".search-result");
       var target = items[searchActiveIdx];
       if (target) {
-        jumpToMatch(target.dataset.slug, target.dataset.section, searchLastQuery);
+        navigateToResult(target.dataset.slug, target.dataset.section, searchLastQuery);
       }
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -678,7 +676,7 @@
   searchResults?.addEventListener("click", function (e) {
     var item = e.target.closest(".search-result");
     if (!item) return;
-    jumpToMatch(item.dataset.slug, item.dataset.section, searchLastQuery);
+    navigateToResult(item.dataset.slug, item.dataset.section, searchLastQuery);
   });
 
   // Global keyboard shortcuts
