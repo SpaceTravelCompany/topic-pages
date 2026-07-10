@@ -5,7 +5,6 @@
   const { site, topics } = JSON.parse(dataEl.textContent);
 
   const eyebrowEl = document.getElementById("topic-eyebrow");
-  const sectionTitleEl = document.getElementById("section-title");
   const viewportEl = document.getElementById("content-viewport");
   const counterEl = document.getElementById("sec-counter");
   const prevBtn = document.getElementById("sec-prev");
@@ -98,7 +97,6 @@
 
     const section = topic.sections[idx];
     eyebrowEl.textContent = topic.title;
-    sectionTitleEl.textContent = section?.title ?? topic.title;
     document.title = `${section?.title ?? topic.title} — ${site.title}`;
 
     const total = topic.sections.length;

@@ -263,7 +263,6 @@ ${ogMeta}
         <button type="button" class="icon-btn nav-toggle" id="nav-toggle" aria-label="주제 메뉴">☰</button>
         <div class="main-header-text">
           <p class="main-eyebrow" id="topic-eyebrow">${escapeHtml(site?.title || "")}</p>
-          <h1 class="main-title" id="section-title"></h1>
         </div>
         <div class="main-header-actions">
           <button type="button" class="icon-btn search-trigger" id="search-trigger" aria-label="검색 열기 (Ctrl+K)">🔍</button>
