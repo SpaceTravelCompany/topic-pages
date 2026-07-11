@@ -330,6 +330,7 @@ a {
   padding: 0.35rem 0.25rem;
   color: var(--text);
   text-align: left;
+  cursor: pointer;
 }
 
 .brand-mark {
@@ -614,6 +615,20 @@ a {
   color: var(--text-muted);
   min-width: 3.5rem;
   text-align: center;
+}
+
+/* ── View wrappers — fill the main-panel grid cell, enable child scroll ── */
+.view-landing,
+.view-topic {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-landing[hidden],
+.view-topic[hidden] {
+  display: none;
 }
 
 /* ── Content — only this area scrolls when a section is long ── */
@@ -1393,6 +1408,15 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
     overflow-y: auto;
     border-left: 1px solid var(--border);
     scrollbar-width: thin;
+  }
+
+  /* Landing: hide TOC, 2-panel grid */
+  body[data-view="landing"] .app {
+    grid-template-columns: var(--nav-w) 1fr;
+  }
+
+  body[data-view="landing"] .toc-panel {
+    display: none;
   }
 }
 

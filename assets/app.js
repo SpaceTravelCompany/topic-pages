@@ -6,6 +6,9 @@
 
   const eyebrowEl = document.getElementById("topic-eyebrow");
   const viewportEl = document.getElementById("content-viewport");
+  const viewportLanding = document.getElementById("content-viewport-landing");
+  const viewLanding = document.getElementById("view-landing");
+  const viewTopic = document.getElementById("view-topic");
   const counterEl = document.getElementById("sec-counter");
   const prevBtn = document.getElementById("sec-prev");
   const nextBtn = document.getElementById("sec-next");
@@ -19,10 +22,8 @@
   const themeToggleBtn = document.getElementById("theme-toggle");
 
   const topicSlugs = Object.keys(topics);
-  const topicSlugFromBody = document.body.dataset.topicSlug;
-  const defaultTopic = topicSlugFromBody || topicSlugs[0] || "";
 
-  let currentTopic = defaultTopic;
+  let currentTopic = "";
   let currentSection = 0;
 
   function getTheme() {
@@ -58,9 +59,15 @@
   }
 
   function updateHash() {
+    if (!currentTopic) {
+      if (location.hash && location.hash !== "#") {
+        history.replaceState(null, "", location.pathname + location.search);
+      }
+      return;
+    }
     const topic = topics[currentTopic];
     const section = topic?.sections[currentSection];
-    const hash = section ? `#${section.id}` : "";
+    const hash = section ? `#${currentTopic}/${section.id}` : `#${currentTopic}`;
     if (location.hash !== hash) {
       history.replaceState(null, "", hash);
     }
@@ -68,7 +75,13 @@
 
   function parseHash() {
     const raw = location.hash.replace(/^#/, "");
-    return { sectionId: raw || null };
+    if (!raw) return { slug: null, sectionId: null };
+    const slashIdx = raw.indexOf("/");
+    if (slashIdx === -1) return { slug: decodeURIComponent(raw), sectionId: null };
+    return {
+      slug: decodeURIComponent(raw.slice(0, slashIdx)),
+      sectionId: decodeURIComponent(raw.slice(slashIdx + 1)),
+    };
   }
 
   function closeMobileNav() {
@@ -90,7 +103,7 @@
   function applySection(idx) {
     const topic = topics[currentTopic];
     if (!topic) return;
-    const sections = viewportEl.querySelectorAll(".topic-section");
+    const sections = viewportEl.querySelectorAll(`.topic-section[data-topic="${currentTopic}"]`);
     if (!sections[idx]) return;
     sections.forEach((s, i) => s.toggleAttribute("hidden", i !== idx));
     currentSection = idx;
@@ -109,6 +122,35 @@
 
     initToc(topic.sections);
     requestAnimationFrame(highlightCode);
+  }
+
+  function showLanding() {
+    document.body.dataset.view = "landing";
+    viewLanding?.removeAttribute("hidden");
+    viewTopic?.setAttribute("hidden", "");
+    currentTopic = "";
+    currentSection = 0;
+    document.title = site.title || "Site";
+    eyebrowEl.textContent = site.title || "";
+    counterEl.textContent = "";
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+    setActiveNav();
+    clearToc();
+    updateHash();
+  }
+
+  function showTopic(slug, sectionIdx) {
+    if (!topics[slug]) { showLanding(); return; }
+    document.body.dataset.view = "topic";
+    viewLanding?.setAttribute("hidden", "");
+    viewTopic?.removeAttribute("hidden");
+    currentTopic = slug;
+    viewportEl.querySelectorAll(".topic-section").forEach((s) => {
+      if (s.dataset.topic !== slug) s.setAttribute("hidden", "");
+    });
+    applySection(sectionIdx || 0);
+    closeMobileNav();
   }
 
   function showSection(index) {
@@ -188,7 +230,7 @@
       const li = document.createElement("li");
       li.className = "depth-2";
       const a = document.createElement("a");
-      a.href = "#" + sec.id;
+      a.href = `#${currentTopic}/${sec.id}`;
       a.dataset.sectionIdx = i;
       a.dataset.tocTarget = sec.id;
       a.textContent = sec.title;
@@ -203,7 +245,7 @@
           const subLi = document.createElement("li");
           subLi.className = "depth-" + h.depth;
           const subA = document.createElement("a");
-          subA.href = "#" + h.id;
+          subA.href = `#${currentTopic}/${h.id}`;
           subA.dataset.sectionIdx = i;
           subA.dataset.headingId = h.id;
           subA.textContent = h.text;
@@ -250,7 +292,10 @@
     const headingId = a.dataset.headingId;
     if (headingId) {
       requestAnimationFrame(() => {
-        const el = document.getElementById(headingId);
+        const visibleSection = viewportEl.querySelector(
+          `.topic-section[data-topic="${currentTopic}"]:not([hidden])`
+        );
+        const el = visibleSection?.querySelector(`#${CSS.escape(headingId)}`);
         if (!el) return;
         el.scrollIntoView({ behavior: "smooth", block: "start" });
         el.classList.add("anchor-flash");
@@ -293,13 +338,15 @@
   });
 
   topicBtns.forEach((btn) => {
-    btn.addEventListener("click", (e) => {
+    btn.addEventListener("click", () => {
       const target = btn.dataset.topic;
-      const current = document.body.dataset.topicSlug;
-      if (target === current) return;
-      const depth = current ? 1 : 0;
-      window.location.assign(depth ? `../${target}/` : `${target}/`);
+      if (target === currentTopic) return;
+      showTopic(target, 0);
     });
+  });
+
+  document.querySelector(".brand-btn")?.addEventListener("click", () => {
+    showLanding();
   });
 
   themeToggleBtn?.addEventListener("click", () => {
@@ -318,6 +365,7 @@
   }
   function applyReaderSize(v) {
     viewportEl?.setAttribute("data-reader-size", v);
+    viewportLanding?.setAttribute("data-reader-size", v);
     localStorage.setItem(READER_KEY, v);
   }
   const readerToggleBtn = document.getElementById("reader-toggle");
@@ -352,8 +400,19 @@
   });
 
   window.addEventListener("hashchange", () => {
-    const { sectionId } = parseHash();
-    if (sectionId && topics[currentTopic]) {
+    const { slug, sectionId } = parseHash();
+    if (!slug || !topics[slug]) {
+      showLanding();
+      return;
+    }
+    if (slug !== currentTopic) {
+      let idx = 0;
+      if (sectionId) {
+        idx = topics[slug].sections.findIndex((s) => s.id === sectionId);
+        if (idx < 0) idx = 0;
+      }
+      showTopic(slug, idx);
+    } else if (sectionId) {
       const idx = topics[currentTopic].sections.findIndex((s) => s.id === sectionId);
       if (idx >= 0) applySection(idx);
     }
@@ -364,14 +423,18 @@
     if (window.innerWidth >= 1200) closeToc();
   });
 
-  // Boot: parse hash and apply initial section (landing has no sections, gracefully no-op)
+  // Boot: parse hash and apply initial view (landing or topic)
   const initial = parseHash();
-  let initialIdx = 0;
-  if (initial.sectionId && currentTopic && topics[currentTopic]) {
-    initialIdx = topics[currentTopic].sections.findIndex((s) => s.id === initial.sectionId);
-    if (initialIdx < 0) initialIdx = 0;
+  if (initial.slug && topics[initial.slug]) {
+    let initialIdx = 0;
+    if (initial.sectionId) {
+      initialIdx = topics[initial.slug].sections.findIndex((s) => s.id === initial.sectionId);
+      if (initialIdx < 0) initialIdx = 0;
+    }
+    showTopic(initial.slug, initialIdx);
+  } else {
+    showLanding();
   }
-  applySection(initialIdx);
 
   /* ── Search modal ── */
   const searchTrigger = document.getElementById("search-trigger");
@@ -558,22 +621,25 @@
 
   function navigateToResult(targetSlug, sectionId, query) {
     closeSearchModal();
-    var currentSlug = document.body.dataset.topicSlug;
-    if (targetSlug === currentSlug && sectionId) {
-      var idx = -1;
-      if (topics[targetSlug]) {
-        idx = topics[targetSlug].sections.findIndex(function (s) { return s.id === sectionId; });
-      }
+    if (targetSlug === currentTopic && sectionId) {
+      const idx = topics[targetSlug]?.sections.findIndex((s) => s.id === sectionId);
       if (idx >= 0) {
         applySection(idx);
         jumpToHighlight(query);
         return;
       }
     }
-    // Cross-topic navigation (or fallback)
-    var depth = currentSlug ? 1 : 0;
-    var url = (depth ? "../" : "") + targetSlug + "/" + (sectionId ? "#" + sectionId : "");
-    window.location.assign(url);
+    if (topics[targetSlug]) {
+      let idx = 0;
+      if (sectionId) {
+        idx = topics[targetSlug].sections.findIndex((s) => s.id === sectionId);
+        if (idx < 0) idx = 0;
+      }
+      showTopic(targetSlug, idx);
+      if (query) jumpToHighlight(query);
+    } else {
+      showLanding();
+    }
   }
 
   function jumpToHighlight(query) {
@@ -586,6 +652,8 @@
           var p = n.parentElement;
           while (p && p !== root) {
             if (p.tagName === "PRE" || p.tagName === "CODE")
+              return NodeFilter.FILTER_REJECT;
+            if (p.tagName === "SECTION" && p.hidden)
               return NodeFilter.FILTER_REJECT;
             p = p.parentElement;
           }

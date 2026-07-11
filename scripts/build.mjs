@@ -87,8 +87,8 @@ function parseArgs(argv) {
   return args;
 }
 
-function assetPath(p, depth) { return `${depth ? "../" : ""}${p}`; }
-function linkToSlug(slug, depth) { return `${depth ? "../" : ""}${slug}/`; }
+function assetPath(p) { return p; }
+function linkToSlug(slug) { return `#${slug}`; }
 
 function parseFrontmatter(raw) {
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
@@ -214,16 +214,16 @@ async function buildSiteData(args) {
 }
 
 function pageShell(opts) {
-  const { site, title, description, canonicalUrl, bodyHtml, siteDataJson, searchIndexJson, depth, topicSlug } = opts;
+  const { site, title, description, canonicalUrl, bodyHtml, siteDataJson, searchIndexJson } = opts;
   const storagePrefix = escapeHtml(site?.storagePrefix || "topic-pages");
   const nav = renderNav(site);
-  const asset = (p) => assetPath(p, depth);
+  const asset = assetPath;
 
   const canonicalTag = canonicalUrl
     ? `  <link rel="canonical" href="${canonicalUrl}">\n  <meta property="og:url" content="${canonicalUrl}">`
     : "";
   const ogMeta = description
-    ? `  <meta property="og:title" content="${escapeHtml(title)}">\n  <meta property="og:description" content="${escapeHtml(description)}">\n  <meta property="og:type" content="${depth ? "article" : "website"}">`
+    ? `  <meta property="og:title" content="${escapeHtml(title)}">\n  <meta property="og:description" content="${escapeHtml(description)}">\n  <meta property="og:type" content="website">`
     : "";
   const descMeta = description ? `  <meta name="description" content="${escapeHtml(description)}">` : "";
 
@@ -251,7 +251,7 @@ ${ogMeta}
   <link rel="stylesheet" href="${asset("assets/main.css")}">
   <link rel="stylesheet" href="${asset("assets/prism.css")}">
 </head>
-<body${topicSlug ? ` data-topic-slug="${escapeHtml(topicSlug)}"` : ""}>
+<body>
   <a class="skip-link" href="#main">본문으로 건너뛰기</a>
   <a class="skip-link" href="#nav">주제 메뉴로 건너뛰기</a>
   <div class="app" id="app">
@@ -305,20 +305,20 @@ ${ogMeta}
 </html>`;
 }
 
-function renderLanding(siteData, searchIndex) {
+function renderSinglePage(siteData, searchIndex) {
   const site = siteData.site;
   const topics = siteData.topics;
   const sections = site.sections || [];
-  const depth = 0;
   const baseUrl = site.baseUrl || "";
 
+  // Landing cards — hash links to topics
   const sectionGroupsHtml = sections
     .map((section) => {
       const cards = (section.topics || [])
         .map((topic) => {
           const meta = topics[topic.slug];
           const summary = topic.summary || meta?.summary || "";
-          return `    <a class="topic-card" href="${linkToSlug(topic.slug, depth)}">
+          return `    <a class="topic-card" href="${linkToSlug(topic.slug)}">
       <p class="topic-card-group">${escapeHtml(section.title)}</p>
       <h3 class="topic-card-title">${topic.icon ? escapeHtml(topic.icon) + " " : ""}${escapeHtml(topic.title)}</h3>
       ${summary ? `<p class="topic-card-summary">${escapeHtml(summary)}</p>` : ""}
@@ -335,94 +335,51 @@ ${cards}
     })
     .join("\n");
 
-  const bodyHtml = `    <article class="content-viewport prose" id="content-viewport" role="tabpanel">
+  const landingHtml = `    <article class="content-viewport prose" id="content-viewport-landing" role="tabpanel">
   <p class="landing-subtitle">${escapeHtml(site.subtitle || "")}</p>
 ${sectionGroupsHtml}
     </article>`;
 
-  const siteDataForJson = JSON.stringify({ site, topics: {} }).replace(/</g, "\\u003c");
+  // All topics' sections in one viewport, prefixed ids to avoid collisions
+  const allSectionsHtml = Object.entries(topics)
+    .flatMap(([slug, topic]) =>
+      topic.sections.map((section, idx) => {
+        const sectionId = `${slug}-${section.id}`;
+        const hidden = " hidden";
+        return `      <section class="topic-section" data-topic="${escapeHtml(slug)}" data-section-idx="${idx}" id="${escapeHtml(sectionId)}"${hidden}>
+        <h2 class="topic-section-title">${escapeHtml(section.title)}</h2>
+        ${section.html}
+      </section>`;
+      }),
+    )
+    .join("\n");
+
+  const topicHtml = `    <article class="content-viewport prose" id="content-viewport" role="tabpanel">
+${allSectionsHtml}
+    </article>`;
+
+  const bodyHtml = `  <div class="view-landing" id="view-landing">
+${landingHtml}
+  </div>
+  <div class="view-topic" id="view-topic" hidden>
+${topicHtml}
+  </div>`;
+
+  const siteDataForJson = JSON.stringify({ site, topics }).replace(/</g, "\\u003c");
   const searchIndexJson = searchIndex
     ? `<script type="application/json" id="search-index">${JSON.stringify(searchIndex).replace(/</g, "\\u003c")}</script>\n`
     : "";
+
+  const canonicalUrl = baseUrl ? `${baseUrl}/` : "";
 
   return pageShell({
     site,
     title: site.title || "Site",
     description: site.subtitle || "",
-    canonicalUrl: baseUrl ? `${baseUrl}/` : "",
-    bodyHtml,
-    siteDataJson: siteDataForJson,
-    searchIndexJson,
-    depth,
-  });
-}
-
-function renderTopicPage(siteData, topics, slug, searchIndex) {
-  const site = siteData.site;
-  const topic = topics[slug];
-  if (!topic) throw new Error(`Unknown topic slug: ${slug}`);
-  const depth = 1;
-  const baseUrl = site.baseUrl || "";
-
-  const sectionsHtml = topic.sections
-    .map((section, idx) => {
-      const hidden = idx > 0 ? ' hidden' : '';
-      return `      <section class="topic-section" data-section-idx="${idx}" id="${escapeHtml(section.id)}"${hidden}>
-        <h2 class="topic-section-title">${escapeHtml(section.title)}</h2>
-        ${section.html}
-      </section>`;
-    })
-    .join("\n");
-
-  const bodyHtml = `    <article class="content-viewport prose" id="content-viewport" role="tabpanel">
-${sectionsHtml}
-    </article>`;
-
-  const siteDataForJson = JSON.stringify({
-    site,
-    topics: { [slug]: topics[slug] },
-  }).replace(/</g, "\\u003c");
-
-  const searchIndexJson = searchIndex
-    ? `<script type="application/json" id="search-index">${JSON.stringify(searchIndex).replace(/</g, "\\u003c")}</script>\n`
-    : "";
-
-  const canonicalUrl = baseUrl ? `${baseUrl}/${slug}/` : "";
-
-  return pageShell({
-    site,
-    title: `${topic.title} — ${site.title}`,
-    description: topic.summary || "",
     canonicalUrl,
     bodyHtml,
     siteDataJson: siteDataForJson,
     searchIndexJson,
-    depth,
-    topicSlug: slug,
-  });
-}
-
-function render404(siteData) {
-  const site = siteData.site;
-  const depth = 0;
-
-  const bodyHtml = `    <article class="content-viewport prose" id="content-viewport" role="tabpanel">
-      <h1 class="topic-section-title" style="margin-top:2rem">주제를 찾을 수 없습니다</h1>
-      <p>요청하신 페이지는 존재하지 않거나 다른 위치로 이동했을 수 있습니다.</p>
-      <p><a href="${linkToSlug("", depth)}">메인 페이지로 돌아가기</a></p>
-    </article>`;
-
-  const siteDataForJson = JSON.stringify({ site, topics: {} }).replace(/</g, "\\u003c");
-
-  return pageShell({
-    site,
-    title: `404 — ${site.title}`,
-    description: "",
-    canonicalUrl: "",
-    bodyHtml,
-    siteDataJson: siteDataForJson,
-    searchIndexJson: "",
-    depth,
   });
 }
 
@@ -478,26 +435,13 @@ async function main() {
   // Merge baseUrl from CLI arg > site.json > ""
   siteData.site.baseUrl = args.baseUrl || siteData.site.baseUrl || "";
 
-  const slugs = Object.keys(siteData.topics);
   const searchIndex = buildSearchIndex(siteData);
   console.log(`  search index: ${searchIndex.records.length} records`);
 
-  // Landing
-  const landing = renderLanding(siteData, searchIndex);
-  await fs.writeFile(path.join(args.out, "index.html"), landing, "utf-8");
-  console.log("  index.html (landing)");
-
-  // Topic pages
-  for (const slug of slugs) {
-    await fs.mkdir(path.join(args.out, slug), { recursive: true });
-    const page = renderTopicPage(siteData, siteData.topics, slug, searchIndex);
-    await fs.writeFile(path.join(args.out, slug, "index.html"), page, "utf-8");
-    console.log(`  ${slug}/index.html`);
-  }
-
-  // 404 fallback
-  await fs.writeFile(path.join(args.out, "404.html"), render404(siteData), "utf-8");
-  console.log("  404.html");
+  // Single index.html (landing + all topics)
+  const page = renderSinglePage(siteData, searchIndex);
+  await fs.writeFile(path.join(args.out, "index.html"), page, "utf-8");
+  console.log("  index.html");
 
   await copyAssets(args);
   console.log(`\nBuild complete → ${args.out}`);
