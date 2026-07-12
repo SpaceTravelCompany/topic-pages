@@ -348,7 +348,6 @@
   document.querySelector(".brand-btn")?.addEventListener("click", () => {
     showLanding();
   });
-
   themeToggleBtn?.addEventListener("click", () => {
     setTheme(getTheme() === "dark" ? "light" : "dark");
     highlightCode();
