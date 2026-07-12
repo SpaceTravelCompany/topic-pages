@@ -24,12 +24,26 @@ import { buildSearchIndex } from "../lib/search-index.js";
  *     "subtitle": "부제목",
  *     "brandMark": "Tp",                       // nav 좌측 마크 (선택, 기본: title 앞 2글자)
  *     "storagePrefix": "my-ref",               // localStorage 네임스페이스 (선택, 기본: "topic-pages")
- *     "theme": {                                // CSS 변수 주입 (선택)
- *       "primary": "#7c3aed",                  // 브랜드 메인 색
- *       "primaryFg": "#ffffff",                // primary 위 글자색
- *       "accent": "#f59e0b",                   // 강조 색
- *       "link": "#7c3aed"                      // 본문 링크 색
+ *     "theme": {                                // CSS 변수 주입 (선택). light/dark 분리.
+ *       "light": {                               // html[data-theme="light"] 에 주입 (선택)
+ *         "brand": "#7c3aed",                    // → --brand
+ *         "primary": "#1a1a1a",                  // → --primary
+ *         "primaryFg": "#fafafa",                 // → --primary-fg (카멜케이스 → --primary-fg)
+ *         "accent": "#7c3aed",                    // → --accent. 정적 색으로 덮어쓰기.
+ *                                                 //   --accent-dim/glow 도 color-mix 로 재계산 (light: 90%/75%)
+ *         "link": "#0969da"                       // → --link
+ *       },
+ *       "dark": {                                // html[data-theme="dark"] 에 주입 (선택)
+ *         "brand": "#a371f7",                     // → --brand
+ *         "primary": "#e5e5e5",                   // → --primary
+ *         "primaryFg": "#1a1a1a",                 // → --primary-fg
+ *         "accent": "#a371f7",                     // → --accent. --accent-dim/glow 재계산 (dark: 85%/65%)
+ *         "link": "#79c0ff"                        // → --link
+ *       }
  *     },
+ *     // theme 전체, light, dark 각각 선택. 각 키도 선택 — 생략 시 main.css 기본값 사용.
+ *     // 값은 CSS 색 문자열만 허용: #hex, rgb()/oklch()/oklab()/hsl() 함수, var(--x), named color.
+ *     // 그 외 문자열은 warn 후 무시 (XSS 방지).
  *     "references": [
  *       { "label": "링크 이름", "href": "https://..." }
  *     ],
@@ -213,11 +227,88 @@ async function buildSiteData(args) {
   return { site, topics };
 }
 
+// site.json theme 키 → CSS 변수명 매핑.
+// brand/primary/primaryFg/accent/link 지원. 각 키 선택적.
+const THEME_KEY_MAP = {
+  brand: "--brand",
+  primary: "--primary",
+  primaryFg: "--primary-fg",
+  accent: "--accent",
+  link: "--link",
+};
+
+// CSS 색 값으로 허용하는 패턴. XSS 방지 — 색이 아닌 문자열 거부.
+//  #7c3aed / 7c3aed       — hex (3,4,6,8 자리)
+//  oklch(...) / oklab(...) — CSS 색 함수
+//  rgb(...) / rgba(...)    — CSS 색 함수
+//  var(--name)             — CSS 변수 참조
+//  named color (red, blue) — 기본 CSS 색 키워드
+const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|oklab\([^;{}]*\)|oklch\([^;{}]*\)|rgba?\([^;{}]*\)|hsla?\([^;{}]*\)|var\(--[a-zA-Z0-9-]+\)|[a-zA-Z]+)$/;
+
+function validateColor(value, key, scope) {
+  if (typeof value !== "string" || !COLOR_RE.test(value.trim())) {
+    console.warn(`  warn: theme.${scope}.${key} 값이 CSS 색으로 보이지 않아 무시합니다: ${JSON.stringify(value)}`);
+    return null;
+  }
+  return value.trim();
+}
+
+// theme 객체에서 CSS 변수 선언 문자열 생성.
+// accent가 주어지면 --accent-dim/--accent-glow도 color-mix로 재계산.
+// dimPct/glowPct: main.css의 light(90%/75%)와 dark(85%/65%) 비율 참조.
+function renderScopeDecls(scopeMap, dimPct, glowPct) {
+  const decls = [];
+  for (const [jsonKey, cssVar] of Object.entries(THEME_KEY_MAP)) {
+    const v = scopeMap[jsonKey];
+    if (v == null || v === "") continue;
+    const safe = validateColor(v, jsonKey, scopeMap._scope);
+    if (!safe) continue;
+    decls.push(`  ${cssVar}: ${safe};`);
+    if (jsonKey === "accent") {
+      decls.push(`  --accent-dim: color-mix(in srgb, ${safe}, transparent ${dimPct}%);`);
+      decls.push(`  --accent-glow: color-mix(in srgb, ${safe}, transparent ${glowPct}%);`);
+    }
+  }
+  return decls;
+}
+
+// site.theme를 <style> 블록으로 렌더. null/빈이면 빈 문자열.
+// light/dark 분리 — 각각 main.css 대응 selector에 매칭:
+//   light: html[data-theme="light"] (명시도 0,1,1 — main.css :root 0,0,1보다 높아 무조건 승)
+//   dark:  html[data-theme="dark"]  (main.css와 동일 0,1,1 → 소스 순서로 승, 주입이 뒤에 옴)
+// accent 파생 비율: light 90%/75%, dark 85%/65% (main.css 참조).
+function renderThemeStyle(theme) {
+  if (!theme || (typeof theme !== "object")) return "";
+  const light = theme.light || {};
+  const dark = theme.dark || {};
+  light._scope = "light";
+  dark._scope = "dark";
+
+  const lightDecls = renderScopeDecls(light, 90, 75);
+  const darkDecls = renderScopeDecls(dark, 85, 65);
+
+  if (lightDecls.length === 0 && darkDecls.length === 0) return "";
+
+  const blocks = [];
+  if (lightDecls.length) {
+    blocks.push(`html[data-theme="light"] {\n${lightDecls.join("\n")}\n}`);
+  }
+  if (darkDecls.length) {
+    blocks.push(`html[data-theme="dark"] {\n${darkDecls.join("\n")}\n}`);
+  }
+  if (blocks.length === 0) return "";
+
+  return `  <style data-theme-override>
+${blocks.join("\n\n")}
+  </style>`;
+}
+
 function pageShell(opts) {
   const { site, title, description, canonicalUrl, bodyHtml, siteDataJson, searchIndexJson } = opts;
   const storagePrefix = escapeHtml(site?.storagePrefix || "topic-pages");
   const nav = renderNav(site);
   const asset = assetPath;
+  const themeStyle = renderThemeStyle(site?.theme);
 
   const canonicalTag = canonicalUrl
     ? `  <link rel="canonical" href="${canonicalUrl}">\n  <meta property="og:url" content="${canonicalUrl}">`
@@ -249,6 +340,7 @@ ${ogMeta}
     })();
   </script>
   <link rel="stylesheet" href="${asset("assets/main.css")}">
+${themeStyle}
   <link rel="stylesheet" href="${asset("assets/prism.css")}">
 </head>
 <body>
