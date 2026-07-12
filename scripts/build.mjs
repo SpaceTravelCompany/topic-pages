@@ -17,6 +17,8 @@ import { buildSearchIndex } from "../lib/search-index.js";
  *   --content <path>  콘텐츠 디렉토리 (기본: ./content)
  *   --out    <path>   출력 디렉토리 (기본: ./dist)
  *   --assets <path>   빌드에 포함할 에셋 디렉토리 (기본: ./assets)
+ *                     custom.css/custom.js 가 이 디렉토리(또는 빌더 기본 assets)에
+ *                     존재하면 index.html 에서 로드됨.
  *
  * site.json 스키마:
  *   {
@@ -355,6 +357,15 @@ function pageShell(opts) {
   const asset = assetPath;
   const themeStyle = renderThemeStyle(site?.theme);
 
+  // custom.css/custom.js — 빌드 시 존재 검사 후 조건부 로드 (copyAssets과 동일 소스 우선순위).
+  // main.css/prism.css 뒤(custom.css), app.js 뒤(custom.js)에 위치해 우선순위/의존성 확보.
+  const customCssLink = opts.hasCustomCss
+    ? `\n  <link rel="stylesheet" href="${asset("assets/custom.css")}">`
+    : "";
+  const customJsScript = opts.hasCustomJs
+    ? `\n  <script src="${asset("assets/custom.js")}"></script>`
+    : "";
+
   const canonicalTag = canonicalUrl
     ? `  <link rel="canonical" href="${canonicalUrl}">\n  <meta property="og:url" content="${canonicalUrl}">`
     : "";
@@ -386,7 +397,7 @@ ${ogMeta}
   </script>
   <link rel="stylesheet" href="${asset("assets/main.css")}">
 ${themeStyle}
-  <link rel="stylesheet" href="${asset("assets/prism.css")}">
+  <link rel="stylesheet" href="${asset("assets/prism.css")}">${customCssLink}
 </head>
 <body>
   <a class="skip-link" href="#main">본문으로 건너뛰기</a>
@@ -437,12 +448,12 @@ ${themeStyle}
   </div>
   <script type="application/json" id="site-data">${siteDataJson}</script>
   <script src="${asset("assets/prism.js")}"></script>
-  <script src="${asset("assets/app.js")}"></script>
+  <script src="${asset("assets/app.js")}"></script>${customJsScript}
 </body>
 </html>`;
 }
 
-function renderSinglePage(siteData, searchIndex) {
+function renderSinglePage(siteData, searchIndex, customAssets) {
   const site = siteData.site;
   const topics = siteData.topics;
   const sections = site.sections || [];
@@ -517,7 +528,20 @@ ${topicHtml}
     bodyHtml,
     siteDataJson: siteDataForJson,
     searchIndexJson,
+    hasCustomCss: customAssets?.hasCustomCss ?? false,
+    hasCustomJs: customAssets?.hasCustomJs ?? false,
   });
+}
+
+// custom.css/custom.js 존재 여부 검사 — copyAssets과 동일한 순서(사용자 assets 우선, 빌더 기본 assets 폴백).
+// pageShell이 <link>/<script> 태그를 조건부로 추가하는 근거.
+async function hasAsset(args, file) {
+  const userSrc = path.join(args.assets, file);
+  const builderAssets = path.resolve(__dirname, "..", "assets");
+  const fallbackSrc = path.join(builderAssets, file);
+  try { await fs.access(userSrc); return true; } catch {}
+  try { await fs.access(fallbackSrc); return true; } catch {}
+  return false;
 }
 
 async function copyAssets(args) {
@@ -575,8 +599,14 @@ async function main() {
   const searchIndex = buildSearchIndex(siteData);
   console.log(`  search index: ${searchIndex.records.length} records`);
 
+  // custom.css/custom.js 존재 검사 — copyAssets과 동일 소스 우선순위.
+  const hasCustomCss = await hasAsset(args, "custom.css");
+  const hasCustomJs = await hasAsset(args, "custom.js");
+  if (hasCustomCss) console.log("  custom.css: loaded");
+  if (hasCustomJs) console.log("  custom.js: loaded");
+
   // Single index.html (landing + all topics)
-  const page = renderSinglePage(siteData, searchIndex);
+  const page = renderSinglePage(siteData, searchIndex, { hasCustomCss, hasCustomJs });
   await fs.writeFile(path.join(args.out, "index.html"), page, "utf-8");
   console.log("  index.html");
 
