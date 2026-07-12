@@ -340,7 +340,7 @@ a {
   width: 2rem;
   height: 2rem;
   border-radius: 7px;
-  background: linear-gradient(135deg, #6e40c9, #a371f7);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand), white 18%), var(--brand));
   font-weight: 700;
   font-size: 0.8rem;
   color: #fff;

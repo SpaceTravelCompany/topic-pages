@@ -23,6 +23,7 @@ import { buildSearchIndex } from "../lib/search-index.js";
  *     "title": "사이트 이름",
  *     "subtitle": "부제목",
  *     "brandMark": "Tp",                       // nav 좌측 마크 (선택, 기본: title 앞 2글자)
+ *     "brandMarkSvg": "<svg ...>...</svg>",    // 인라인 SVG 브랜드 마크 (선택, brandMark보다 우선, XSS 필터 통과 시만 적용)
  *     "storagePrefix": "my-ref",               // localStorage 네임스페이스 (선택, 기본: "topic-pages")
  *     "theme": {                                // CSS 변수 주입 (선택). light/dark 분리.
  *       "light": {                               // html[data-theme="light"] 에 주입 (선택)
@@ -179,12 +180,15 @@ function renderNav(site) {
   const referencesHtml = renderReferences(site.references);
 
   const title = site.title || "Site";
-  const brand = (site.brandMark || title).slice(0, 2);
+  const brandSvg = validateSvg(site.brandMarkSvg, "site.json");
+  const brandMarkInner = brandSvg
+    ? `${brandSvg}`  // 인라인 SVG — validateSvg 통과한 안전한 마크업
+    : escapeHtml((site.brandMark || title).slice(0, 2));  // 폴백: 텍스트
 
   return `<nav class="nav-panel" id="nav" aria-label="주제">
   <div class="nav-brand">
     <div class="brand-btn">
-      <span class="brand-mark">${escapeHtml(brand)}</span>
+      <span class="brand-mark">${brandMarkInner}</span>
       <span class="brand-text">${escapeHtml(title)}</span>
     </div>
     <p class="brand-sub">${escapeHtml(site.subtitle || "")}</p>
@@ -251,6 +255,47 @@ function validateColor(value, key, scope) {
     return null;
   }
   return value.trim();
+}
+
+// SVG 브랜드 마크 검증 — XSS 방지.
+// 통과 조건:
+//   1. 문자열이 <svg>로 시작하고 </svg>로 끝남 (앞뒤 공백 허용)
+//   2. 위험 토큰 없음: <script, onload, onerror, onclick, on*, javascript:, <iframe, <foreignObject, expression(
+//   3. 허용된 자식 요소만: path, circle, rect, g, polyline, polygon, line, ellipse, defs, use, symbol, linearGradient, radialGradient, stop, svg
+//   4. style 속성 허용하지만 style 값 내 javascript:/expression() 차단
+// 통과 시 원본 반환, 실패 시 null + warn.
+const SVG_ALLOWED_TAGS = new Set([
+  "svg", "path", "circle", "rect", "g", "polyline", "polygon", "line",
+  "ellipse", "defs", "use", "symbol", "linearGradient", "radialGradient", "stop",
+]);
+const SVG_DANGER_RE = /<script|<iframe|<foreignObject|\bon\w+\s*=|javascript:|expression\s*\(/i;
+
+function validateSvg(svg, source) {
+  if (typeof svg !== "string" || svg.trim() === "") return null;
+
+  const trimmed = svg.trim();
+  if (!/^<svg[\s>]/i.test(trimmed) || !/<\/svg>\s*$/i.test(trimmed)) {
+    console.warn(`  warn: ${source} brandMarkSvg가 <svg>...</svg> 형식이 아님 — 무시하고 brandMark(텍스트)로 폴백합니다.`);
+    return null;
+  }
+
+  // 위험 토큰 일괄 차단 (on*, javascript:, script, iframe, foreignObject, expression)
+  if (SVG_DANGER_RE.test(trimmed)) {
+    console.warn(`  warn: ${source} brandMarkSvg에 위험 토큰(script/on*/javascript:/iframe/foreignObject/expression) 감지 — 무시하고 brandMark(텍스트)로 폴백합니다.`);
+    return null;
+  }
+
+  // 모든 태그 이름 추출 → 허용 목록 검증
+  const tagMatches = trimmed.matchAll(/<([a-zA-Z][\w-]*)/g);
+  for (const m of tagMatches) {
+    const tag = m[1].toLowerCase();
+    if (!SVG_ALLOWED_TAGS.has(tag)) {
+      console.warn(`  warn: ${source} brandMarkSvg에 허용되지 않은 태그 <${tag}> 감지 — 무시하고 brandMark(텍스트)로 폴백합니다.`);
+      return null;
+    }
+  }
+
+  return trimmed;
 }
 
 // theme 객체에서 CSS 변수 선언 문자열 생성.
