@@ -397,7 +397,8 @@ ${ogMeta}
   </script>
   <link rel="stylesheet" href="${asset("assets/main.css")}">
 ${themeStyle}
-  <link rel="stylesheet" href="${asset("assets/prism.css")}">${customCssLink}
+  <link rel="stylesheet" href="${asset("assets/prism.css")}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" crossorigin="anonymous">${customCssLink}
 </head>
 <body>
   <a class="skip-link" href="#main">본문으로 건너뛰기</a>
@@ -448,6 +449,28 @@ ${themeStyle}
   </div>
   <script type="application/json" id="site-data">${siteDataJson}</script>
   <script src="${asset("assets/prism.js")}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      if (window.renderMathInElement) {
+        function renderMath() {
+          renderMathInElement(document.getElementById("content-viewport") || document.body, {
+            delimiters: [
+              {left: "$$", right: "$$", display: true},
+              {left: "$", right: "$", display: false}
+            ],
+            throwOnError: false
+          });
+        }
+        renderMath();
+        // Re-render when topic changes (SPA navigation)
+        const observer = new MutationObserver(function() { renderMath(); });
+        const vp = document.getElementById("content-viewport");
+        if (vp) observer.observe(vp, {childList: true, subtree: true, characterData: true});
+      }
+    });
+  </script>
   <script src="${asset("assets/app.js")}"></script>${customJsScript}
 </body>
 </html>`;
