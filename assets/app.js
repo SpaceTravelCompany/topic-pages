@@ -360,7 +360,7 @@
   const SIZES = ["sm", "base", "lg"];
   function getReaderSize() {
     const v = localStorage.getItem(READER_KEY);
-    return SIZES.includes(v) ? v : "base";
+    return SIZES.includes(v) ? v : "sm";
   }
   function applyReaderSize(v) {
     viewportEl?.setAttribute("data-reader-size", v);

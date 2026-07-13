@@ -1081,8 +1081,9 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   border-color: var(--accent-glow);
 }
 
-.prose[data-reader-size="sm"] { font-size: var(--text-sm); }
-.prose[data-reader-size="lg"] { font-size: var(--text-lg); }
+.prose[data-reader-size="sm"] { font-size: var(--text-base); }
+.prose[data-reader-size="base"] { font-size: var(--text-lg); }
+.prose[data-reader-size="lg"] { font-size: var(--text-xl); }
 
 /* ── Misc ── */
 .prose hr {
