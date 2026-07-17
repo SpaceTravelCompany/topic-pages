@@ -106,7 +106,9 @@
     const target = sections[idx];
     const container = viewportEl;
     const targetTop = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-    container.scrollTo({ top: targetTop, behavior: "smooth" });
+    const dist = Math.abs(targetTop - container.scrollTop);
+    const behavior = dist > container.clientHeight ? "auto" : "smooth";
+    container.scrollTo({ top: targetTop, behavior });
     currentSection = idx;
 
     const section = topic.sections[idx];
@@ -292,7 +294,9 @@
         const el = document.getElementById(headingId);
         if (!el) return;
         const headingTop = el.getBoundingClientRect().top - viewportEl.getBoundingClientRect().top + viewportEl.scrollTop;
-        viewportEl.scrollTo({ top: headingTop, behavior: "smooth" });
+        const hDist = Math.abs(headingTop - viewportEl.scrollTop);
+        const hBehavior = hDist > viewportEl.clientHeight ? "auto" : "smooth";
+        viewportEl.scrollTo({ top: headingTop, behavior: hBehavior });
         el.classList.add("anchor-flash");
         setTimeout(() => el.classList.remove("anchor-flash"), 1500);
       });
