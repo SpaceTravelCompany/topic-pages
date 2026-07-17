@@ -596,27 +596,6 @@ a {
   flex-shrink: 0;
 }
 
-.sec-nav-btn {
-  font-size: 1.15rem;
-}
-
-.sec-nav-btn:hover:not(:disabled) {
-  border-color: var(--accent-glow);
-  color: var(--accent);
-}
-
-.sec-nav-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.sec-counter {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  min-width: 3.5rem;
-  text-align: center;
-}
-
 /* ── View wrappers — fill the main-panel grid cell, enable child scroll ── */
 .view-landing,
 .view-topic {
@@ -1286,11 +1265,6 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
     min-width: 0;
   }
 
-  .sec-counter {
-    min-width: 2.75rem;
-    font-size: 0.7rem;
-  }
-
   .prose pre[class*="language-"] {
     font-size: 0.8125em;
   }
@@ -1727,7 +1701,6 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
 .topic-section {
   scroll-margin-top: 80px;
 }
-.topic-section[hidden] { display: none; }
 .topic-section-title {
   margin: 0 0 1.25rem;
   font-size: 1.25em;

@@ -426,9 +426,7 @@ ${themeStyle}
             </svg>
           </button>
           <button type="button" class="toc-toggle" id="toc-toggle" aria-label="목차 토글" aria-controls="toc-panel" aria-expanded="false">☰ 목차</button>
-          <button type="button" class="icon-btn sec-nav-btn" id="sec-prev" disabled aria-label="이전 섹션">‹</button>
-          <span class="sec-counter" id="sec-counter"></span>
-          <button type="button" class="icon-btn sec-nav-btn" id="sec-next" disabled aria-label="다음 섹션">›</button>
+
         </div>
       </header>
       ${bodyHtml}
@@ -516,8 +514,7 @@ ${sectionGroupsHtml}
     .flatMap(([slug, topic]) =>
       topic.sections.map((section, idx) => {
         const sectionId = `${slug}-${section.id}`;
-        const hidden = " hidden";
-        return `      <section class="topic-section" data-topic="${escapeHtml(slug)}" data-section-idx="${idx}" id="${escapeHtml(sectionId)}"${hidden}>
+        return `      <section class="topic-section" data-topic="${escapeHtml(slug)}" data-section-idx="${idx}" id="${escapeHtml(sectionId)}">
         <h2 class="topic-section-title">${escapeHtml(section.title)}</h2>
         ${section.html}
       </section>`;

@@ -9,9 +9,6 @@
   const viewportLanding = document.getElementById("content-viewport-landing");
   const viewLanding = document.getElementById("view-landing");
   const viewTopic = document.getElementById("view-topic");
-  const counterEl = document.getElementById("sec-counter");
-  const prevBtn = document.getElementById("sec-prev");
-  const nextBtn = document.getElementById("sec-next");
   const navPanel = document.querySelector(".nav-panel");
   const navToggle = document.getElementById("nav-toggle");
   const navBackdrop = document.getElementById("nav-backdrop");
@@ -100,22 +97,17 @@
     });
   }
 
-  function applySection(idx) {
+  function scrollToSection(idx) {
     const topic = topics[currentTopic];
     if (!topic) return;
     const sections = viewportEl.querySelectorAll(`.topic-section[data-topic="${currentTopic}"]`);
     if (!sections[idx]) return;
-    sections.forEach((s, i) => s.toggleAttribute("hidden", i !== idx));
+    sections[idx].scrollIntoView({ behavior: "smooth", block: "start" });
     currentSection = idx;
 
     const section = topic.sections[idx];
     eyebrowEl.textContent = topic.title;
     document.title = `${section?.title ?? topic.title} — ${site.title}`;
-
-    const total = topic.sections.length;
-    counterEl.textContent = total ? `${idx + 1} / ${total}` : "";
-    prevBtn.disabled = idx <= 0;
-    nextBtn.disabled = idx >= total - 1;
 
     setActiveNav();
     updateHash();
@@ -132,9 +124,6 @@
     currentSection = 0;
     document.title = site.title || "Site";
     eyebrowEl.textContent = site.title || "";
-    counterEl.textContent = "";
-    prevBtn.disabled = true;
-    nextBtn.disabled = true;
     setActiveNav();
     clearToc();
     updateHash();
@@ -146,15 +135,12 @@
     viewLanding?.setAttribute("hidden", "");
     viewTopic?.removeAttribute("hidden");
     currentTopic = slug;
-    viewportEl.querySelectorAll(".topic-section").forEach((s) => {
-      if (s.dataset.topic !== slug) s.setAttribute("hidden", "");
-    });
-    applySection(sectionIdx || 0);
+    scrollToSection(sectionIdx || 0);
     closeMobileNav();
   }
 
   function showSection(index) {
-    applySection(index);
+    scrollToSection(index);
   }
 
   function escapeHtml(text) {
@@ -238,8 +224,8 @@
       li.appendChild(a);
       ul.appendChild(li);
 
-      // h3/h4 within section (only shown when this section is active)
-      if (sec.headings && i === currentSection) {
+      // h3/h4 within section (always shown in scroll mode)
+      if (sec.headings) {
         sec.headings.forEach((h) => {
           if (h.depth < 3) return; // skip the virtual h2
           const subLi = document.createElement("li");
@@ -287,15 +273,12 @@
     if (!a) return;
     e.preventDefault();
     const idx = parseInt(a.dataset.sectionIdx, 10);
-    showSection(idx);
-    // Scroll to sub-heading after section renders
+    scrollToSection(idx);
+    // Scroll to sub-heading after section scrolls into view
     const headingId = a.dataset.headingId;
     if (headingId) {
       requestAnimationFrame(() => {
-        const visibleSection = viewportEl.querySelector(
-          `.topic-section[data-topic="${currentTopic}"]:not([hidden])`
-        );
-        const el = visibleSection?.querySelector(`#${CSS.escape(headingId)}`);
+        const el = document.getElementById(headingId);
         if (!el) return;
         el.scrollIntoView({ behavior: "smooth", block: "start" });
         el.classList.add("anchor-flash");
@@ -381,18 +364,10 @@
 
   navBackdrop?.addEventListener("click", closeMobileNav);
 
-  prevBtn.addEventListener("click", () => showSection(currentSection - 1));
-  nextBtn.addEventListener("click", () => showSection(currentSection + 1));
-
   document.addEventListener("keydown", (e) => {
     if (e.target.matches("input, textarea, select")) return;
-    if (e.key === "ArrowLeft") {
+    if (e.key === "Escape") {
       e.preventDefault();
-      showSection(currentSection - 1);
-    } else if (e.key === "ArrowRight") {
-      e.preventDefault();
-      showSection(currentSection + 1);
-    } else if (e.key === "Escape") {
       closeMobileNav();
       closeToc();
     }
@@ -413,7 +388,7 @@
       showTopic(slug, idx);
     } else if (sectionId) {
       const idx = topics[currentTopic].sections.findIndex((s) => s.id === sectionId);
-      if (idx >= 0) applySection(idx);
+      if (idx >= 0) scrollToSection(idx);
     }
   });
 
@@ -623,7 +598,7 @@
     if (targetSlug === currentTopic && sectionId) {
       const idx = topics[targetSlug]?.sections.findIndex((s) => s.id === sectionId);
       if (idx >= 0) {
-        applySection(idx);
+        scrollToSection(idx);
         jumpToHighlight(query);
         return;
       }
@@ -651,8 +626,6 @@
           var p = n.parentElement;
           while (p && p !== root) {
             if (p.tagName === "PRE" || p.tagName === "CODE")
-              return NodeFilter.FILTER_REJECT;
-            if (p.tagName === "SECTION" && p.hidden)
               return NodeFilter.FILTER_REJECT;
             p = p.parentElement;
           }
