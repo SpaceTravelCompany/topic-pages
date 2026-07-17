@@ -105,7 +105,7 @@
 
     const target = sections[idx];
     const container = viewportEl;
-    const targetTop = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+    const targetTop = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 80;
     const dist = Math.abs(targetTop - container.scrollTop);
     const behavior = dist > container.clientHeight ? "auto" : "smooth";
     container.scrollTo({ top: targetTop, behavior });
@@ -293,7 +293,7 @@
       requestAnimationFrame(() => {
         const el = document.getElementById(headingId);
         if (!el) return;
-        const headingTop = el.getBoundingClientRect().top - viewportEl.getBoundingClientRect().top + viewportEl.scrollTop;
+        const headingTop = el.getBoundingClientRect().top - viewportEl.getBoundingClientRect().top + viewportEl.scrollTop - 80;
         const hDist = Math.abs(headingTop - viewportEl.scrollTop);
         const hBehavior = hDist > viewportEl.clientHeight ? "auto" : "smooth";
         viewportEl.scrollTo({ top: headingTop, behavior: hBehavior });
