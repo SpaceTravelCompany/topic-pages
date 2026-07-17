@@ -102,7 +102,11 @@
     if (!topic) return;
     const sections = viewportEl.querySelectorAll(`.topic-section[data-topic="${currentTopic}"]`);
     if (!sections[idx]) return;
-    sections[idx].scrollIntoView({ behavior: "smooth", block: "start" });
+
+    const target = sections[idx];
+    const container = viewportEl;
+    const targetTop = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+    container.scrollTo({ top: targetTop, behavior: "smooth" });
     currentSection = idx;
 
     const section = topic.sections[idx];
@@ -287,7 +291,8 @@
       requestAnimationFrame(() => {
         const el = document.getElementById(headingId);
         if (!el) return;
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        const headingTop = el.getBoundingClientRect().top - viewportEl.getBoundingClientRect().top + viewportEl.scrollTop;
+        viewportEl.scrollTo({ top: headingTop, behavior: "smooth" });
         el.classList.add("anchor-flash");
         setTimeout(() => el.classList.remove("anchor-flash"), 1500);
       });
