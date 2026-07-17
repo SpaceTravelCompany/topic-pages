@@ -135,6 +135,13 @@
     viewLanding?.setAttribute("hidden", "");
     viewTopic?.removeAttribute("hidden");
     currentTopic = slug;
+    viewportEl.querySelectorAll(".topic-section").forEach((s) => {
+      if (s.dataset.topic !== slug) {
+        s.setAttribute("hidden", "");
+      } else {
+        s.removeAttribute("hidden");
+      }
+    });
     scrollToSection(sectionIdx || 0);
     closeMobileNav();
   }
