@@ -598,6 +598,22 @@ async function copyAssets(args) {
       console.warn(`  warn: required asset not found in user or builder: ${file}`);
     }
   }
+
+  // 사용자 assets 디렉터리의 나머지 파일(필수/선택 목록에 없는 것)도 dist/assets/로 복사.
+  // 마크다운 콘텐츠에서 참조하는 임의의 이미지(PNG, JPG 등)가 dist에 포함되도록.
+  // 빌더 자신의 assets는 폴백 전용이므로 여기선 복사하지 않음.
+  const pinned = new Set([...required, ...optional]);
+  try {
+    const entries = await fs.readdir(args.assets, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      if (pinned.has(entry.name)) continue;
+      const src = path.join(args.assets, entry.name);
+      await fs.copyFile(src, path.join(dest, entry.name));
+    }
+  } catch {
+    // args.assets 디렉터리가 존재하지 않으면 조용히 건너뜀
+  }
 }
 
 async function main() {
