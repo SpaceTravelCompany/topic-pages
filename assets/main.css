@@ -453,33 +453,6 @@ a {
   white-space: nowrap;
 }
 
-.nav-license {
-  margin-top: auto;
-  padding: 0.75rem 0.85rem 0;
-}
-
-.cc-badge {
-  display: block;
-  width: fit-content;
-  max-width: 100%;
-  padding: 0.25rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  text-decoration: none;
-}
-
-.cc-badge:hover {
-  border-color: var(--accent-glow);
-  background: color-mix(in srgb, var(--accent), transparent 94%);
-}
-
-.cc-badge-img {
-  display: block;
-  width: 7.5rem;
-  max-width: 100%;
-  height: auto;
-}
-
 .topic-btn {
   display: grid;
   grid-template-columns: 1.4rem 1fr;
@@ -1649,8 +1622,6 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   .code-lang,
   .copy-toast,
   .skip-link,
-  .cc-badge,
-  .nav-license,
   .main-header-actions,
   .toc-toggle,
   .search-trigger,

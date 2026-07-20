@@ -197,11 +197,6 @@ function renderNav(site) {
   </div>
   ${groups}
 ${referencesHtml}
-  <div class="nav-license" aria-label="라이선스">
-    <a class="cc-badge" href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="license noopener noreferrer" title="문서/콘텐츠: CC BY-NC-SA 4.0">
-      <img class="cc-badge-img" src="assets/cc-by-nc-sa.svg" alt="CC BY-NC-SA 4.0">
-    </a>
-  </div>
 </nav>`;
 }
 
@@ -568,7 +563,7 @@ async function copyAssets(args) {
   const dest = path.join(args.out, "assets");
   await fs.mkdir(dest, { recursive: true });
 
-  const required = ["main.css", "prism.css", "prism.js", "app.js", "favicon.svg", "cc-by-nc-sa.svg"];
+  const required = ["main.css", "prism.css", "prism.js", "app.js", "favicon.svg"];
   const optional = ["custom.css", "custom.js"];
 
   // 빌더 자신의 assets 디렉토리 (폴백용)

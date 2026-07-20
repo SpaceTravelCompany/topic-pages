@@ -79,7 +79,7 @@ node scripts/build.mjs [옵션]
   --assets  <path>   빌드에 포함할 에셋 디렉토리 (기본: ./assets)
 ```
 
-에셋 디렉토리에는 `main.css`, `prism.css`, `prism.js`, `app.js`, `favicon.svg`, `cc-by-nc-sa.svg` 6개 파일이 필요하다. 빌더가 `./assets`에서 복사한다.
+에셋 디렉토리에는 `main.css`, `prism.css`, `prism.js`, `app.js`, `favicon.svg` 5개 파일이 필요하다. 빌더가 `./assets`에서 복사한다.
 
 ## site.json 스키마
 
@@ -146,7 +146,6 @@ my-ref-site/
 │   ├── prism.css
 │   ├── prism.js
 │   ├── favicon.svg
-│   └── cc-by-nc-sa.svg
 ├── dist/                    # 빌드 결과
 │   ├── index.html
 │   └── assets/
@@ -161,5 +160,4 @@ my-ref-site/
 
 ## 라이선스
 
-- 빌더 코드 (이 저장소): [MIT](LICENSE)
-- 빌더가 생성한 문서 콘텐츠: 각 사이트가 지정한 콘텐츠 라이선스 따름
+[MIT](LICENSE)
