@@ -179,7 +179,15 @@
 
   tocBackdrop && tocBackdrop.addEventListener("click", closeToc);
 
-  // TOC click handler: smooth scroll to section
+  // TOC click handler: smooth scroll to section within the viewport scroll container.
+  // Manual scroll calculation instead of scrollIntoView — scrollIntoView walks the
+  // whole ancestor chain and can shove the viewport itself up under the header.
+  function scrollToWithin(el) {
+    if (!el || !viewportEl) return;
+    var top = el.getBoundingClientRect().top - viewportEl.getBoundingClientRect().top + viewportEl.scrollTop - 80;
+    viewportEl.scrollTo({ top: top, behavior: "smooth" });
+  }
+
   tocPanel && tocPanel.addEventListener("click", function (e) {
     var a = e.target.closest("a[data-section-idx]");
     if (!a) return;
@@ -189,16 +197,14 @@
     if (!sec) return;
     var targetId = topicSlug + "-" + sec.id;
     var el = document.getElementById(targetId);
-    if (el) {
-      el.scrollIntoView({ block: "start", behavior: "smooth" });
-    }
+    if (el) scrollToWithin(el);
     var headingId = a.dataset.headingId;
     if (headingId) {
       requestAnimationFrame(function () {
         var hEl = document.getElementById(topicSlug + "-" + headingId);
         if (!hEl) hEl = document.getElementById(headingId);
         if (hEl) {
-          hEl.scrollIntoView({ block: "start", behavior: "smooth" });
+          scrollToWithin(hEl);
           hEl.classList.add("anchor-flash");
           setTimeout(function () { hEl.classList.remove("anchor-flash"); }, 1500);
         }

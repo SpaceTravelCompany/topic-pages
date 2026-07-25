@@ -1370,11 +1370,11 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   }
 
   /* Landing: hide TOC, 2-panel grid */
-  body[data-view="landing"] .app {
+  body[data-page-type="landing"] .app {
     grid-template-columns: var(--nav-w) 1fr;
   }
 
-  body[data-view="landing"] .toc-panel {
+  body[data-page-type="landing"] .toc-panel {
     display: none;
   }
 }
