@@ -331,6 +331,7 @@ a {
   color: var(--text);
   text-align: left;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .brand-mark {
@@ -371,6 +372,7 @@ a {
   cursor: pointer;
   user-select: none;
   position: relative;
+  touch-action: manipulation;
 }
 .nav-group-label::after {
   content: "▾";
@@ -426,6 +428,7 @@ a {
   color: var(--text-muted);
   text-decoration: none;
   font-size: var(--text-sm);
+  touch-action: manipulation;
 }
 
 .reference-link:hover {
@@ -470,6 +473,7 @@ a {
   font: inherit;
   font-size: var(--text-sm);
   transition: background 0.12s, border-color 0.12s, color 0.12s;
+  touch-action: manipulation;
 }
 
 .topic-btn:hover {
@@ -1456,7 +1460,6 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   inset: 0;
   z-index: 300;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(2px);
 }
 .search-backdrop[hidden] {
   display: none;
@@ -1709,6 +1712,7 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   color: inherit;
   text-decoration: none;
   transition: border-color .15s ease, transform .15s ease;
+  touch-action: manipulation;
 }
 .topic-card:hover,
 .topic-card:focus-visible {

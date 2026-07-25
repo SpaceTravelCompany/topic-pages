@@ -22,6 +22,7 @@
 
   let currentTopic = "";
   let currentSection = 0;
+  let lastTocTopic = "";
 
   function getTheme() {
     return document.documentElement.dataset.theme === "light" ? "light" : "dark";
@@ -46,7 +47,9 @@
     function processChunk() {
       const end = Math.min(i + CHUNK, arr.length);
       for (; i < end; i++) {
+        if (arr[i].getAttribute("data-highlighted") === "1") continue;
         Prism.highlightElement(arr[i]);
+        arr[i].setAttribute("data-highlighted", "1");
       }
       if (i < arr.length) {
         requestAnimationFrame(processChunk);
@@ -103,21 +106,34 @@
     const sections = viewportEl.querySelectorAll(`.topic-section[data-topic="${currentTopic}"]`);
     if (!sections[idx]) return;
 
+    // Read layout once synchronously
     const target = sections[idx];
     const container = viewportEl;
     const targetTop = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 80;
-    container.scrollTo({ top: targetTop });
+
+    // Update state synchronously (hash needs currentSection)
     currentSection = idx;
-
-    const section = topic.sections[idx];
-    eyebrowEl.textContent = topic.title;
-    document.title = `${section?.title ?? topic.title} — ${site.title}`;
-
-    setActiveNav();
     updateHash();
 
-    initToc(topic.sections);
-    requestAnimationFrame(highlightCode);
+    const section = topic.sections[idx];
+
+    // Defer layout writes to next frame
+    requestAnimationFrame(function() {
+      container.scrollTo({ top: targetTop });
+      eyebrowEl.textContent = topic.title;
+      document.title = `${section?.title ?? topic.title} — ${site.title}`;
+
+      setActiveNav();
+
+      if (lastTocTopic !== currentTopic) {
+        initToc(topic.sections);
+        lastTocTopic = currentTopic;
+      } else {
+        updateTocActive(idx);
+      }
+
+      requestAnimationFrame(highlightCode);
+    });
   }
 
   function showLanding() {
@@ -213,6 +229,8 @@
   function clearToc() {
     const panel = document.getElementById("toc-panel");
     if (panel) panel.innerHTML = "";
+    // Reset so next scrollToSection rebuilds TOC instead of only toggling active.
+    lastTocTopic = "";
   }
 
   function initToc(sections) {
@@ -253,6 +271,16 @@
     });
 
     panel.appendChild(ul);
+  }
+
+  function updateTocActive(idx) {
+    const panel = document.getElementById("toc-panel");
+    if (!panel) return;
+    // h2 section anchors (no data-heading-id) get active by section index;
+    // h3/h4 sub-anchors never get active here (only h2 tracks current section).
+    panel.querySelectorAll("a[data-section-idx]:not([data-heading-id])").forEach(function(a) {
+      a.classList.toggle("active", String(idx) === a.dataset.sectionIdx);
+    });
   }
 
   const tocToggleBtn = document.getElementById("toc-toggle");
@@ -345,6 +373,7 @@
   });
   themeToggleBtn?.addEventListener("click", () => {
     setTheme(getTheme() === "dark" ? "light" : "dark");
+    viewportEl.querySelectorAll("pre code[data-highlighted]").forEach(function(el) { el.removeAttribute("data-highlighted"); });
     highlightCode();
   });
 

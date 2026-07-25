@@ -442,25 +442,32 @@ ${themeStyle}
   </div>
   <script type="application/json" id="site-data">${siteDataJson}</script>
   <script src="${asset("assets/prism.js")}"></script>
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" crossorigin="anonymous" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js" crossorigin="anonymous" defer></script>
   <script>
     document.addEventListener("DOMContentLoaded", function() {
       if (window.renderMathInElement) {
+        var mathTimer = null;
         function renderMath() {
-          renderMathInElement(document.getElementById("content-viewport") || document.body, {
-            delimiters: [
-              {left: "$$", right: "$$", display: true},
-              {left: "$", right: "$", display: false}
-            ],
-            throwOnError: false
-          });
+          if (mathTimer) clearTimeout(mathTimer);
+          mathTimer = setTimeout(function() {
+            mathTimer = null;
+            (window.requestIdleCallback || function(cb) { setTimeout(cb, 0); })(function() {
+              renderMathInElement(document.getElementById("content-viewport") || document.body, {
+                delimiters: [
+                  {left: "$$", right: "$$", display: true},
+                  {left: "$", right: "$", display: false}
+                ],
+                throwOnError: false
+              });
+            });
+          }, 150);
         }
         renderMath();
         // Re-render when topic changes (SPA navigation)
         const observer = new MutationObserver(function() { renderMath(); });
         const vp = document.getElementById("content-viewport");
-        if (vp) observer.observe(vp, {childList: true, subtree: true, characterData: true});
+        if (vp) observer.observe(vp, {childList: true});
       }
     });
   </script>
