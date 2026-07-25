@@ -329,6 +329,7 @@ a {
   width: 100%;
   padding: 0.35rem 0.25rem;
   color: var(--text);
+  text-decoration: none;
   text-align: left;
   cursor: pointer;
   touch-action: manipulation;
@@ -468,6 +469,7 @@ a {
   border-radius: var(--radius);
   background: transparent;
   color: var(--text-muted);
+  text-decoration: none;
   cursor: pointer;
   text-align: left;
   font: inherit;
@@ -499,6 +501,10 @@ a {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Visited link color overrides for nav <a> elements */
+a.topic-btn:visited { color: var(--text-muted); }
+a.brand-btn:visited { color: var(--text); }
 
 /* ── Main panel ── */
 .main-panel {
@@ -1431,6 +1437,14 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   .toc-toggle {
     display: inline-flex;
   }
+  .toc-toggle .toc-toggle-label {
+    display: none;
+  }
+}
+
+/* Landing page: always hide TOC toggle (no sections to navigate) */
+body[data-page-type="landing"] .toc-toggle {
+  display: none !important;
 }
 
 /* ── Visually hidden (a11y) ── */
@@ -1486,7 +1500,14 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   display: none;
 }
 
+.search-header {
+  display: flex;
+  align-items: center;
+}
+
 .search-input {
+  flex: 1;
+  min-width: 0;
   width: 100%;
   padding: var(--space-4) var(--space-5);
   font-size: var(--text-lg);
@@ -1500,6 +1521,10 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
 }
 .search-input:focus {
   outline: none;
+}
+
+.search-close-btn {
+  display: none;
 }
 
 .search-results {
@@ -1585,6 +1610,19 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
     height: 100vh;
     max-height: none;
     border-radius: 0;
+  }
+  .search-close-btn {
+    display: inline-flex;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--muted-fg);
+    font-size: 1.2rem;
+    cursor: pointer;
+    touch-action: manipulation;
   }
   .search-footer {
     padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));

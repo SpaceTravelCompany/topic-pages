@@ -104,8 +104,20 @@ function parseArgs(argv) {
   return args;
 }
 
-function assetPath(p) { return p; }
-function linkToSlug(slug) { return `#${slug}`; }
+function makeAssetFn(baseUrl, isTopic) {
+  if (baseUrl) return (p) => baseUrl.replace(/\/+$/, "") + "/" + p;
+  return isTopic ? (p) => "../" + p : (p) => p;
+}
+
+function makeLinkFn(baseUrl, isTopic) {
+  if (baseUrl) return (slug) => baseUrl.replace(/\/+$/, "") + "/topics/" + slug + ".html";
+  return isTopic ? (slug) => "../topics/" + slug + ".html" : (slug) => "topics/" + slug + ".html";
+}
+
+function makeLandingHref(baseUrl, isTopic) {
+  if (baseUrl) return baseUrl.replace(/\/+$/, "") + "/";
+  return isTopic ? "../index.html" : "./index.html";
+}
 
 function parseFrontmatter(raw) {
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
@@ -160,15 +172,16 @@ ${links}
   </div>`;
 }
 
-function renderNav(site) {
+function renderNav(site, linkFn, activeTopicSlug, landingHref) {
   const groups = (site.sections || [])
     .map((section) => {
       const buttons = (section.topics || [])
         .map((topic) => {
-          return `<button type="button" class="topic-btn" data-topic="${topic.slug}" title="${escapeHtml(topic.summary || "")}">
+          const activeClass = topic.slug === activeTopicSlug ? ' active' : '';
+          return `<a href="${linkFn(topic.slug)}" class="topic-btn${activeClass}" data-topic="${topic.slug}" title="${escapeHtml(topic.summary || "")}">
   <span class="topic-btn-icon" aria-hidden="true">${topic.icon || ""}</span>
   <span class="topic-btn-label">${escapeHtml(topic.title)}</span>
-</button>`;
+</a>`;
         })
         .join("");
       const groupId = section.id || slugify(section.title, { maxLength: 40 });
@@ -189,10 +202,10 @@ function renderNav(site) {
 
   return `<nav class="nav-panel" id="nav" aria-label="주제">
   <div class="nav-brand">
-    <div class="brand-btn">
+    <a class="brand-btn" href="${landingHref}">
       <span class="brand-mark">${brandMarkInner}</span>
       <span class="brand-text">${escapeHtml(title)}</span>
-    </div>
+    </a>
     <p class="brand-sub">${escapeHtml(site.subtitle || "")}</p>
   </div>
   ${groups}
@@ -346,18 +359,20 @@ ${blocks.join("\n\n")}
 }
 
 function pageShell(opts) {
-  const { site, title, description, canonicalUrl, bodyHtml, siteDataJson, searchIndexJson } = opts;
+  const {
+    site, title, description, canonicalUrl, bodyHtml,
+    pageType, activeTopicSlug, topicTitle, asset, linkToTopic,
+    topicDataJson, hasCustomCss, hasCustomJs,
+  } = opts;
   const storagePrefix = escapeHtml(site?.storagePrefix || "topic-pages");
-  const nav = renderNav(site);
-  const asset = assetPath;
+  const landingHref = makeLandingHref(site?.baseUrl || "", pageType === "topic");
+  const nav = renderNav(site, linkToTopic, activeTopicSlug, landingHref);
   const themeStyle = renderThemeStyle(site?.theme);
 
-  // custom.css/custom.js — 빌드 시 존재 검사 후 조건부 로드 (copyAssets과 동일 소스 우선순위).
-  // main.css/prism.css 뒤(custom.css), app.js 뒤(custom.js)에 위치해 우선순위/의존성 확보.
-  const customCssLink = opts.hasCustomCss
+  const customCssLink = hasCustomCss
     ? `\n  <link rel="stylesheet" href="${asset("assets/custom.css")}">`
     : "";
-  const customJsScript = opts.hasCustomJs
+  const customJsScript = hasCustomJs
     ? `\n  <script src="${asset("assets/custom.js")}"></script>`
     : "";
 
@@ -368,6 +383,20 @@ function pageShell(opts) {
     ? `  <meta property="og:title" content="${escapeHtml(title)}">\n  <meta property="og:description" content="${escapeHtml(description)}">\n  <meta property="og:type" content="website">`
     : "";
   const descMeta = description ? `  <meta name="description" content="${escapeHtml(description)}">` : "";
+
+  const topicDataScript = topicDataJson
+    ? `<script type="application/json" id="topic-data">${topicDataJson}</script>\n`
+    : "";
+
+  const baseUrlVal = site?.baseUrl || "";
+  const searchIndexUrl = baseUrlVal
+    ? baseUrlVal.replace(/\/+$/, "") + "/search-index.json"
+    : pageType === "topic" ? "../search-index.json" : "search-index.json";
+  const bodyDataAttrs = `data-page-type="${pageType}"` +
+    (activeTopicSlug ? ` data-topic-slug="${escapeHtml(activeTopicSlug)}"` : "") +
+    (baseUrlVal ? ` data-base-url="${escapeHtml(baseUrlVal)}"` : "") +
+    ` data-storage-prefix="${storagePrefix}"` +
+    ` data-search-index-url="${escapeHtml(searchIndexUrl)}"`;
 
   return `<!DOCTYPE html>
 <html lang="ko" data-theme="dark">
@@ -395,7 +424,7 @@ ${themeStyle}
   <link rel="stylesheet" href="${asset("assets/prism.css")}">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" crossorigin="anonymous">${customCssLink}
 </head>
-<body>
+<body ${bodyDataAttrs}>
   <a class="skip-link" href="#main">본문으로 건너뛰기</a>
   <a class="skip-link" href="#nav">주제 메뉴로 건너뛰기</a>
   <div class="app" id="app">
@@ -406,7 +435,7 @@ ${themeStyle}
       <header class="main-header">
         <button type="button" class="icon-btn nav-toggle" id="nav-toggle" aria-label="주제 메뉴">☰</button>
         <div class="main-header-text">
-          <p class="main-eyebrow" id="topic-eyebrow">${escapeHtml(site?.title || "")}</p>
+          <p class="main-eyebrow" id="topic-eyebrow">${escapeHtml(topicTitle || site?.title || "")}</p>
         </div>
         <div class="main-header-actions">
           <button type="button" class="icon-btn search-trigger" id="search-trigger" aria-label="검색 열기 (Ctrl+K)">🔍</button>
@@ -420,19 +449,20 @@ ${themeStyle}
               <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
             </svg>
           </button>
-          <button type="button" class="toc-toggle" id="toc-toggle" aria-label="목차 토글" aria-controls="toc-panel" aria-expanded="false">☰ 목차</button>
-
+          <button type="button" class="toc-toggle" id="toc-toggle" aria-label="목차 토글" aria-controls="toc-panel" aria-expanded="false"><span class="toc-toggle-icon" aria-hidden="true">☰</span><span class="toc-toggle-label">목차</span></button>
         </div>
       </header>
       ${bodyHtml}
     </main>
     <aside class="toc-panel" id="toc-panel" aria-label="이 페이지 목차"></aside>
   </div>
-  ${searchIndexJson}
-  <div class="search-backdrop" id="search-backdrop" hidden></div>
+${topicDataScript}  <div class="search-backdrop" id="search-backdrop" hidden></div>
   <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-labelledby="search-input-label" hidden>
-    <label class="visually-hidden" id="search-input-label">검색</label>
-    <input type="search" class="search-input" id="search-input" placeholder="검색 (Ctrl+K)" autocomplete="off" spellcheck="false" />
+    <div class="search-header">
+      <label class="visually-hidden" id="search-input-label">검색</label>
+      <input type="search" class="search-input" id="search-input" placeholder="검색 (Ctrl+K)" autocomplete="off" spellcheck="false" />
+      <button type="button" class="search-close-btn" id="search-close-btn" aria-label="검색 닫기">✕</button>
+    </div>
     <ul class="search-results" id="search-results" role="listbox" aria-label="검색 결과"></ul>
     <div class="search-footer">
       <span><kbd>↑</kbd><kbd>↓</kbd> 이동</span>
@@ -440,7 +470,6 @@ ${themeStyle}
       <span><kbd>Esc</kbd> 닫기</span>
     </div>
   </div>
-  <script type="application/json" id="site-data">${siteDataJson}</script>
   <script src="${asset("assets/prism.js")}"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" crossorigin="anonymous" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js" crossorigin="anonymous" defer></script>
@@ -464,7 +493,6 @@ ${themeStyle}
           }, 150);
         }
         renderMath();
-        // Re-render when topic changes (SPA navigation)
         const observer = new MutationObserver(function() { renderMath(); });
         const vp = document.getElementById("content-viewport");
         if (vp) observer.observe(vp, {childList: true});
@@ -476,20 +504,23 @@ ${themeStyle}
 </html>`;
 }
 
-function renderSinglePage(siteData, searchIndex, customAssets) {
+function renderLandingPage(siteData, searchIndex, customAssets) {
   const site = siteData.site;
   const topics = siteData.topics;
   const sections = site.sections || [];
   const baseUrl = site.baseUrl || "";
 
-  // Landing cards — hash links to topics
+  const asset = makeAssetFn(baseUrl, false);
+  const linkToTopic = makeLinkFn(baseUrl, false);
+
+  // Landing cards with <a href="topics/<slug>.html">
   const sectionGroupsHtml = sections
     .map((section) => {
       const cards = (section.topics || [])
         .map((topic) => {
           const meta = topics[topic.slug];
           const summary = topic.summary || meta?.summary || "";
-          return `    <a class="topic-card" href="${linkToSlug(topic.slug)}">
+          return `    <a class="topic-card" href="${linkToTopic(topic.slug)}">
       <p class="topic-card-group">${escapeHtml(section.title)}</p>
       <h3 class="topic-card-title">${topic.icon ? escapeHtml(topic.icon) + " " : ""}${escapeHtml(topic.title)}</h3>
       ${summary ? `<p class="topic-card-summary">${escapeHtml(summary)}</p>` : ""}
@@ -511,34 +542,9 @@ ${cards}
 ${sectionGroupsHtml}
     </article>`;
 
-  // All topics' sections in one viewport, prefixed ids to avoid collisions
-  const allSectionsHtml = Object.entries(topics)
-    .flatMap(([slug, topic]) =>
-      topic.sections.map((section, idx) => {
-        const sectionId = `${slug}-${section.id}`;
-        return `      <section class="topic-section" data-topic="${escapeHtml(slug)}" data-section-idx="${idx}" id="${escapeHtml(sectionId)}">
-        <h2 class="topic-section-title">${escapeHtml(section.title)}</h2>
-        ${section.html}
-      </section>`;
-      }),
-    )
-    .join("\n");
-
-  const topicHtml = `    <article class="content-viewport prose" id="content-viewport" role="tabpanel">
-${allSectionsHtml}
-    </article>`;
-
   const bodyHtml = `  <div class="view-landing" id="view-landing">
 ${landingHtml}
-  </div>
-  <div class="view-topic" id="view-topic" hidden>
-${topicHtml}
   </div>`;
-
-  const siteDataForJson = JSON.stringify({ site, topics }).replace(/</g, "\\u003c");
-  const searchIndexJson = searchIndex
-    ? `<script type="application/json" id="search-index">${JSON.stringify(searchIndex).replace(/</g, "\\u003c")}</script>\n`
-    : "";
 
   const canonicalUrl = baseUrl ? `${baseUrl}/` : "";
 
@@ -548,8 +554,69 @@ ${topicHtml}
     description: site.subtitle || "",
     canonicalUrl,
     bodyHtml,
-    siteDataJson: siteDataForJson,
-    searchIndexJson,
+    pageType: "landing",
+    activeTopicSlug: "",
+    topicTitle: site?.title || "",
+    asset,
+    linkToTopic,
+    topicDataJson: null,
+    hasCustomCss: customAssets?.hasCustomCss ?? false,
+    hasCustomJs: customAssets?.hasCustomJs ?? false,
+  });
+}
+
+function renderTopicPage(siteData, slug, topic, customAssets) {
+  const site = siteData.site;
+  const baseUrl = site.baseUrl || "";
+
+  const asset = makeAssetFn(baseUrl, true);
+  const linkToTopic = makeLinkFn(baseUrl, true);
+
+  // Single topic's sections, prefixed ids for anchor compatibility
+  const sectionsHtml = topic.sections
+    .map((section, idx) => {
+      const sectionId = `${slug}-${section.id}`;
+      return `      <section class="topic-section" data-topic="${escapeHtml(slug)}" data-section-idx="${idx}" id="${escapeHtml(sectionId)}">
+        <h2 class="topic-section-title">${escapeHtml(section.title)}</h2>
+        ${section.html}
+      </section>`;
+    })
+    .join("\n");
+
+  const topicHtml = `    <article class="content-viewport prose" id="content-viewport" role="tabpanel">
+${sectionsHtml}
+    </article>`;
+
+  const bodyHtml = `  <div class="view-topic" id="view-topic">
+${topicHtml}
+  </div>`;
+
+  // Topic metadata for TOC initialization (sections: id/title/headings)
+  const topicData = {
+    slug,
+    title: topic.title,
+    sections: topic.sections.map((s) => ({
+      id: s.id,
+      title: s.title,
+      headings: s.headings || [],
+    })),
+  };
+  const topicDataJson = JSON.stringify(topicData).replace(/</g, "\\u003c");
+
+  const canonicalUrl = baseUrl ? `${baseUrl}/topics/${slug}.html` : "";
+
+  return pageShell({
+    site,
+    title: `${topic.title} — ${site.title}`,
+    description: topic.summary || site.subtitle || "",
+    canonicalUrl,
+    bodyHtml,
+    pageType: "topic",
+    activeTopicSlug: slug,
+    topicTitle: topic.title,
+    asset,
+    linkToTopic,
+    topicDataJson,
     hasCustomCss: customAssets?.hasCustomCss ?? false,
     hasCustomJs: customAssets?.hasCustomJs ?? false,
   });
@@ -629,6 +696,7 @@ async function main() {
 
   await fs.rm(args.out, { recursive: true, force: true });
   await fs.mkdir(args.out, { recursive: true });
+  await fs.mkdir(path.join(args.out, "topics"), { recursive: true });
 
   const siteData = await buildSiteData(args);
   // Merge baseUrl from CLI arg > site.json > ""
@@ -643,10 +711,31 @@ async function main() {
   if (hasCustomCss) console.log("  custom.css: loaded");
   if (hasCustomJs) console.log("  custom.js: loaded");
 
-  // Single index.html (landing + all topics)
-  const page = renderSinglePage(siteData, searchIndex, { hasCustomCss, hasCustomJs });
-  await fs.writeFile(path.join(args.out, "index.html"), page, "utf-8");
-  console.log("  index.html");
+  const customAssets = { hasCustomCss, hasCustomJs };
+
+  // Landing page
+  const landingPage = renderLandingPage(siteData, searchIndex, customAssets);
+  await fs.writeFile(path.join(args.out, "index.html"), landingPage, "utf-8");
+  console.log("  index.html (landing)");
+
+  // Topic pages (parallel)
+  const topicEntries = Object.entries(siteData.topics);
+  await Promise.all(
+    topicEntries.map(async ([slug, topic]) => {
+      const topicPage = renderTopicPage(siteData, slug, topic, customAssets);
+      await fs.writeFile(path.join(args.out, "topics", `${slug}.html`), topicPage, "utf-8");
+      console.log(`  topics/${slug}.html`);
+    }),
+  );
+  console.log(`  topics: ${topicEntries.length} pages`);
+
+  // Search index as standalone JSON file
+  await fs.writeFile(
+    path.join(args.out, "search-index.json"),
+    JSON.stringify(searchIndex),
+    "utf-8",
+  );
+  console.log("  search-index.json");
 
   await copyAssets(args);
   console.log(`\nBuild complete → ${args.out}`);

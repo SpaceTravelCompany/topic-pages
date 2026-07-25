@@ -1,29 +1,22 @@
 (function () {
-  const dataEl = document.getElementById("site-data");
-  if (!dataEl) return;
+  "use strict";
 
-  const { site, topics } = JSON.parse(dataEl.textContent);
+  var pageType = document.body.dataset.pageType || "landing";
+  var baseUrl = document.body.dataset.baseUrl || "";
+  var topicSlug = document.body.dataset.topicSlug || "";
+  var STORAGE_PREFIX = document.body.dataset.storagePrefix || "topic-pages";
+  var searchIndexUrl = document.body.dataset.searchIndexUrl || "search-index.json";
 
-  const eyebrowEl = document.getElementById("topic-eyebrow");
-  const viewportEl = document.getElementById("content-viewport");
-  const viewportLanding = document.getElementById("content-viewport-landing");
-  const viewLanding = document.getElementById("view-landing");
-  const viewTopic = document.getElementById("view-topic");
-  const navPanel = document.querySelector(".nav-panel");
-  const navToggle = document.getElementById("nav-toggle");
-  const navBackdrop = document.getElementById("nav-backdrop");
-  const topicBtns = [...document.querySelectorAll(".topic-btn")];
+  var viewportEl = document.getElementById("content-viewport");
+  var navPanel = document.querySelector(".nav-panel");
+  var navToggle = document.getElementById("nav-toggle");
+  var navBackdrop = document.getElementById("nav-backdrop");
+  var eyebrowEl = document.getElementById("topic-eyebrow");
 
-  const STORAGE_PREFIX = (site && site.storagePrefix) || "topic-pages";
-  const THEME_KEY = `${STORAGE_PREFIX}-theme`;
-  const themeToggleBtn = document.getElementById("theme-toggle");
+  var THEME_KEY = STORAGE_PREFIX + "-theme";
+  var themeToggleBtn = document.getElementById("theme-toggle");
 
-  const topicSlugs = Object.keys(topics);
-
-  let currentTopic = "";
-  let currentSection = 0;
-  let lastTocTopic = "";
-
+  /* ── Theme ── */
   function getTheme() {
     return document.documentElement.dataset.theme === "light" ? "light" : "dark";
   }
@@ -31,236 +24,125 @@
   function setTheme(theme) {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem(THEME_KEY, theme);
-    themeToggleBtn?.setAttribute(
+    themeToggleBtn && themeToggleBtn.setAttribute(
       "aria-label",
       theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환",
     );
   }
 
+  function closeMobileNav() {
+    navPanel && navPanel.classList.remove("open");
+    navBackdrop && navBackdrop.setAttribute("hidden", "");
+  }
+
+  function openMobileNav() {
+    navPanel && navPanel.classList.add("open");
+    navBackdrop && navBackdrop.removeAttribute("hidden");
+  }
+
   function highlightCode() {
     if (typeof Prism === "undefined") return;
-    const blocks = viewportEl.querySelectorAll("pre code");
+    if (!viewportEl) return;
+    var blocks = viewportEl.querySelectorAll("pre code");
     if (!blocks.length) return;
-    const arr = Array.from(blocks);
-    let i = 0;
-    const CHUNK = 8;
+    var arr = Array.from(blocks);
+    var i = 0;
+    var CHUNK = 8;
     function processChunk() {
-      const end = Math.min(i + CHUNK, arr.length);
+      var end = Math.min(i + CHUNK, arr.length);
       for (; i < end; i++) {
         if (arr[i].getAttribute("data-highlighted") === "1") continue;
         Prism.highlightElement(arr[i]);
         arr[i].setAttribute("data-highlighted", "1");
       }
-      if (i < arr.length) {
-        requestAnimationFrame(processChunk);
-      }
+      if (i < arr.length) requestAnimationFrame(processChunk);
     }
     requestAnimationFrame(processChunk);
   }
 
-  function updateHash() {
-    if (!currentTopic) {
-      if (location.hash && location.hash !== "#") {
-        history.replaceState(null, "", location.pathname + location.search);
-      }
-      return;
-    }
-    const topic = topics[currentTopic];
-    const section = topic?.sections[currentSection];
-    const hash = section ? `#${currentTopic}/${section.id}` : `#${currentTopic}`;
-    if (location.hash !== hash) {
-      history.replaceState(null, "", hash);
-    }
-  }
-
-  function parseHash() {
-    const raw = location.hash.replace(/^#/, "");
-    if (!raw) return { slug: null, sectionId: null };
-    const slashIdx = raw.indexOf("/");
-    if (slashIdx === -1) return { slug: decodeURIComponent(raw), sectionId: null };
-    return {
-      slug: decodeURIComponent(raw.slice(0, slashIdx)),
-      sectionId: decodeURIComponent(raw.slice(slashIdx + 1)),
-    };
-  }
-
-  function closeMobileNav() {
-    navPanel?.classList.remove("open");
-    navBackdrop?.setAttribute("hidden", "");
-  }
-
-  function openMobileNav() {
-    navPanel?.classList.add("open");
-    navBackdrop?.removeAttribute("hidden");
-  }
-
-  function setActiveNav() {
-    topicBtns.forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.topic === currentTopic);
-    });
-  }
-
-  function scrollToSection(idx) {
-    const topic = topics[currentTopic];
-    if (!topic) return;
-    const sections = viewportEl.querySelectorAll(`.topic-section[data-topic="${currentTopic}"]`);
-    if (!sections[idx]) return;
-
-    // Read layout once synchronously
-    const target = sections[idx];
-    const container = viewportEl;
-    const targetTop = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 80;
-
-    // Update state synchronously (hash needs currentSection)
-    currentSection = idx;
-    updateHash();
-
-    const section = topic.sections[idx];
-
-    // Defer layout writes to next frame
-    requestAnimationFrame(function() {
-      container.scrollTo({ top: targetTop });
-      eyebrowEl.textContent = topic.title;
-      document.title = `${section?.title ?? topic.title} — ${site.title}`;
-
-      setActiveNav();
-
-      if (lastTocTopic !== currentTopic) {
-        initToc(topic.sections);
-        lastTocTopic = currentTopic;
-      } else {
-        updateTocActive(idx);
-      }
-
-      requestAnimationFrame(highlightCode);
-    });
-  }
-
-  function showLanding() {
-    document.body.dataset.view = "landing";
-    viewLanding?.removeAttribute("hidden");
-    viewTopic?.setAttribute("hidden", "");
-    currentTopic = "";
-    currentSection = 0;
-    document.title = site.title || "Site";
-    eyebrowEl.textContent = site.title || "";
-    setActiveNav();
-    clearToc();
-    updateHash();
-  }
-
-  function showTopic(slug, sectionIdx) {
-    if (!topics[slug]) { showLanding(); return; }
-    document.body.dataset.view = "topic";
-    viewLanding?.setAttribute("hidden", "");
-    viewTopic?.removeAttribute("hidden");
-    currentTopic = slug;
-    viewportEl.querySelectorAll(".topic-section").forEach((s) => {
-      if (s.dataset.topic !== slug) {
-        s.setAttribute("hidden", "");
-      } else {
-        s.removeAttribute("hidden");
-      }
-    });
-    scrollToSection(sectionIdx || 0);
-    closeMobileNav();
-  }
-
-  function showSection(index) {
-    scrollToSection(index);
-  }
-
-  function escapeHtml(text) {
-    return String(text)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;");
-  }
-
   /* ── Copy code button (event delegation) ── */
-  document.addEventListener("click", async (e) => {
-    const btn = e.target.closest(".copy-code-btn");
+  document.addEventListener("click", async function (e) {
+    var btn = e.target.closest(".copy-code-btn");
     if (!btn) return;
-    const toolbar = btn.closest(".code-toolbar");
+    var toolbar = btn.closest(".code-toolbar");
     if (!toolbar) return;
-    const code = toolbar.querySelector("code");
-    const text = code?.innerText ?? "";
-    const toast = toolbar.querySelector(".copy-toast");
+    var code = toolbar.querySelector("code");
+    var text = code ? code.innerText : "";
+    var toast = toolbar.querySelector(".copy-toast");
 
     function show(msg, ok) {
       if (!toast) return;
       toast.textContent = msg;
       toast.classList.add("show");
       btn.classList.toggle("success", ok);
-      setTimeout(() => {
+      setTimeout(function () {
         toast.classList.remove("show");
         btn.classList.remove("success");
       }, 1600);
     }
 
-    // 1st: Clipboard API
-    if (navigator.clipboard?.writeText) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
       try {
         await navigator.clipboard.writeText(text);
         show("복사됨", true);
         return;
-      } catch { /* fall through */ }
+      } catch (e) { /* fall through */ }
     }
-    // 2nd: file:// fallback (execCommand)
     try {
-      const range = document.createRange();
+      var range = document.createRange();
       range.selectNode(code);
-      const sel = window.getSelection();
+      var sel = window.getSelection();
       sel.removeAllRanges();
       sel.addRange(range);
-      const ok = document.execCommand("copy");
+      var ok = document.execCommand("copy");
       sel.removeAllRanges();
       show(ok ? "복사됨" : "Ctrl+C로 복사해 주세요", ok);
-    } catch {
+    } catch (e) {
       show("Ctrl+C로 복사해 주세요", false);
     }
   });
 
   /* ── TOC (section-per-view model) ──
-     Each TOC anchor stores the section index. Click navigates via showSection()
-     which toggles sections by hidden attribute.
+     Each TOC anchor links to the section element (id = {slug}-{sectionId}).
+     Click handler prevents default and uses smooth scroll.
   */
+  var tocSections = null;
 
   function clearToc() {
-    const panel = document.getElementById("toc-panel");
+    tocSections = null;
+    var panel = document.getElementById("toc-panel");
     if (panel) panel.innerHTML = "";
-    // Reset so next scrollToSection rebuilds TOC instead of only toggling active.
-    lastTocTopic = "";
   }
 
   function initToc(sections) {
-    clearToc();
-    const panel = document.getElementById("toc-panel");
-    if (!panel || !sections || sections.length === 0) return;
+    tocSections = sections;
+    var panel = document.getElementById("toc-panel");
+    if (!panel) return;
+    panel.innerHTML = "";
+    if (!sections || sections.length === 0) return;
 
-    const ul = document.createElement("ul");
+    var ul = document.createElement("ul");
 
-    sections.forEach((sec, i) => {
+    sections.forEach(function (sec, i) {
       // Section h2
-      const li = document.createElement("li");
+      var li = document.createElement("li");
       li.className = "depth-2";
-      const a = document.createElement("a");
-      a.href = `#${currentTopic}/${sec.id}`;
+      var a = document.createElement("a");
+      a.href = "#" + topicSlug + "-" + sec.id;
       a.dataset.sectionIdx = i;
       a.dataset.tocTarget = sec.id;
       a.textContent = sec.title;
-      a.classList.toggle("active", i === currentSection);
       li.appendChild(a);
       ul.appendChild(li);
 
-      // h3/h4 within section (always shown in scroll mode)
+      // h3/h4 within section
       if (sec.headings) {
-        sec.headings.forEach((h) => {
+        sec.headings.forEach(function (h) {
           if (h.depth < 3) return; // skip the virtual h2
-          const subLi = document.createElement("li");
+          var subLi = document.createElement("li");
           subLi.className = "depth-" + h.depth;
-          const subA = document.createElement("a");
-          subA.href = `#${currentTopic}/${h.id}`;
+          var subA = document.createElement("a");
+          subA.href = "#" + topicSlug + "-" + h.id;
           subA.dataset.sectionIdx = i;
           subA.dataset.headingId = h.id;
           subA.textContent = h.text;
@@ -273,195 +155,165 @@
     panel.appendChild(ul);
   }
 
-  function updateTocActive(idx) {
-    const panel = document.getElementById("toc-panel");
-    if (!panel) return;
-    // h2 section anchors (no data-heading-id) get active by section index;
-    // h3/h4 sub-anchors never get active here (only h2 tracks current section).
-    panel.querySelectorAll("a[data-section-idx]:not([data-heading-id])").forEach(function(a) {
-      a.classList.toggle("active", String(idx) === a.dataset.sectionIdx);
-    });
-  }
-
-  const tocToggleBtn = document.getElementById("toc-toggle");
-  const tocPanel = document.getElementById("toc-panel");
-  const tocBackdrop = document.getElementById("toc-backdrop");
+  /* ── TOC toggle ── */
+  var tocToggleBtn = document.getElementById("toc-toggle");
+  var tocPanel = document.getElementById("toc-panel");
+  var tocBackdrop = document.getElementById("toc-backdrop");
 
   function closeToc() {
-    tocPanel?.classList.remove("open");
-    tocToggleBtn?.setAttribute("aria-expanded", "false");
-    tocBackdrop?.setAttribute("hidden", "");
+    tocPanel && tocPanel.classList.remove("open");
+    tocToggleBtn && tocToggleBtn.setAttribute("aria-expanded", "false");
+    tocBackdrop && tocBackdrop.setAttribute("hidden", "");
   }
 
-  tocToggleBtn?.addEventListener("click", () => {
-    const expanded = tocToggleBtn.getAttribute("aria-expanded") === "true";
+  tocToggleBtn && tocToggleBtn.addEventListener("click", function () {
+    var expanded = tocToggleBtn.getAttribute("aria-expanded") === "true";
     tocToggleBtn.setAttribute("aria-expanded", String(!expanded));
-    tocPanel?.classList.toggle("open", !expanded);
+    tocPanel && tocPanel.classList.toggle("open", !expanded);
     if (expanded) {
-      tocBackdrop?.setAttribute("hidden", "");
+      tocBackdrop && tocBackdrop.setAttribute("hidden", "");
     } else {
-      tocBackdrop?.removeAttribute("hidden");
+      tocBackdrop && tocBackdrop.removeAttribute("hidden");
     }
   });
 
-  tocBackdrop?.addEventListener("click", closeToc);
+  tocBackdrop && tocBackdrop.addEventListener("click", closeToc);
 
-  // TOC click handler: registered once in main flow (not inside initToc)
-  tocPanel?.addEventListener("click", (e) => {
-    const a = e.target.closest("a[data-section-idx]");
+  // TOC click handler: smooth scroll to section
+  tocPanel && tocPanel.addEventListener("click", function (e) {
+    var a = e.target.closest("a[data-section-idx]");
     if (!a) return;
     e.preventDefault();
-    const idx = parseInt(a.dataset.sectionIdx, 10);
-    scrollToSection(idx);
-    // Scroll to sub-heading after section scrolls into view
-    const headingId = a.dataset.headingId;
+    var idx = parseInt(a.dataset.sectionIdx, 10);
+    var sec = tocSections && tocSections[idx];
+    if (!sec) return;
+    var targetId = topicSlug + "-" + sec.id;
+    var el = document.getElementById(targetId);
+    if (el) {
+      el.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+    var headingId = a.dataset.headingId;
     if (headingId) {
-      requestAnimationFrame(() => {
-        const el = document.getElementById(headingId);
-        if (!el) return;
-        const headingTop = el.getBoundingClientRect().top - viewportEl.getBoundingClientRect().top + viewportEl.scrollTop - 80;
-        viewportEl.scrollTo({ top: headingTop });
-        el.classList.add("anchor-flash");
-        setTimeout(() => el.classList.remove("anchor-flash"), 1500);
+      requestAnimationFrame(function () {
+        var hEl = document.getElementById(topicSlug + "-" + headingId);
+        if (!hEl) hEl = document.getElementById(headingId);
+        if (hEl) {
+          hEl.scrollIntoView({ block: "start", behavior: "smooth" });
+          hEl.classList.add("anchor-flash");
+          setTimeout(function () { hEl.classList.remove("anchor-flash"); }, 1500);
+        }
       });
     }
   });
 
-  /* ── Sidebar nav group collapse ── */
-  const navGroupsEl = document.querySelectorAll(".nav-group");
-  const COLLAPSE_KEY = `${STORAGE_PREFIX}-collapsed-groups`;
-  function getCollapsed() {
-    try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "[]"); }
-    catch { return []; }
-  }
-  function setCollapsed(arr) {
-    try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(arr)); }
-    catch {}
-  }
-  function applyCollapsed() {
-    const collapsed = new Set(getCollapsed());
-    navGroupsEl.forEach((g, i) => {
-      const id = g.dataset.groupId || String(i);
-      g.classList.toggle("collapsed", collapsed.has(id));
+  /* ── Nav active state ── */
+  function setActiveNav() {
+    if (!topicSlug) return;
+    var btns = document.querySelectorAll(".topic-btn");
+    btns.forEach(function (btn) {
+      btn.classList.toggle("active", btn.dataset.topic === topicSlug);
     });
   }
-  applyCollapsed();
-  navGroupsEl.forEach((g, i) => {
-    const label = g.querySelector(".nav-group-label");
-    if (!label) return;
-    const id = g.dataset.groupId || String(i);
-    label.addEventListener("click", (e) => {
-      e.preventDefault();
-      const arr = getCollapsed();
-      const set = new Set(arr);
-      if (set.has(id)) set.delete(id); else set.add(id);
-      setCollapsed([...set]);
-      applyCollapsed();
-    });
-  });
 
-  topicBtns.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const target = btn.dataset.topic;
-      if (target === currentTopic) return;
-      showTopic(target, 0);
-    });
-  });
-
-  document.querySelector(".brand-btn")?.addEventListener("click", () => {
-    showLanding();
-  });
-  themeToggleBtn?.addEventListener("click", () => {
+  /* ── Theme toggle ── */
+  themeToggleBtn && themeToggleBtn.addEventListener("click", function () {
     setTheme(getTheme() === "dark" ? "light" : "dark");
-    viewportEl.querySelectorAll("pre code[data-highlighted]").forEach(function(el) { el.removeAttribute("data-highlighted"); });
+    if (viewportEl) {
+      viewportEl.querySelectorAll("pre code[data-highlighted]").forEach(function (el) {
+        el.removeAttribute("data-highlighted");
+      });
+    }
     highlightCode();
   });
-
   setTheme(getTheme());
 
   /* ── Reader mode (font size toggle) ── */
-  const READER_KEY = `${STORAGE_PREFIX}-reader-size`;
-  const SIZES = ["sm", "base", "lg"];
+  var READER_KEY = STORAGE_PREFIX + "-reader-size";
+  var SIZES = ["sm", "base", "lg"];
   function getReaderSize() {
-    const v = localStorage.getItem(READER_KEY);
-    return SIZES.includes(v) ? v : "sm";
+    var v = localStorage.getItem(READER_KEY);
+    return SIZES.indexOf(v) !== -1 ? v : "sm";
   }
   function applyReaderSize(v) {
-    viewportEl?.setAttribute("data-reader-size", v);
-    viewportLanding?.setAttribute("data-reader-size", v);
+    if (viewportEl) viewportEl.setAttribute("data-reader-size", v);
+    var landing = document.getElementById("content-viewport-landing");
+    if (landing) landing.setAttribute("data-reader-size", v);
     localStorage.setItem(READER_KEY, v);
   }
-  const readerToggleBtn = document.getElementById("reader-toggle");
-  readerToggleBtn?.addEventListener("click", () => {
-    const i = SIZES.indexOf(getReaderSize());
+  var readerToggleBtn = document.getElementById("reader-toggle");
+  readerToggleBtn && readerToggleBtn.addEventListener("click", function () {
+    var i = SIZES.indexOf(getReaderSize());
     applyReaderSize(SIZES[(i + 1) % SIZES.length]);
   });
   applyReaderSize(getReaderSize());
 
-  navToggle?.addEventListener("click", () => {
-    if (navPanel?.classList.contains("open")) closeMobileNav();
+  /* ── Nav toggle ── */
+  navToggle && navToggle.addEventListener("click", function () {
+    if (navPanel && navPanel.classList.contains("open")) closeMobileNav();
     else openMobileNav();
   });
+  navBackdrop && navBackdrop.addEventListener("click", closeMobileNav);
 
-  navBackdrop?.addEventListener("click", closeMobileNav);
-
-  document.addEventListener("keydown", (e) => {
-    if (e.target.matches("input, textarea, select")) return;
-    if (e.key === "Escape") {
+  /* ── Sidebar nav group collapse ── */
+  var navGroupsEl = document.querySelectorAll(".nav-group");
+  var COLLAPSE_KEY = STORAGE_PREFIX + "-collapsed-groups";
+  function getCollapsed() {
+    try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "[]"); }
+    catch (e) { return []; }
+  }
+  function setCollapsed(arr) {
+    try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(arr)); }
+    catch (e) {}
+  }
+  function applyCollapsed() {
+    var collapsed = new Set(getCollapsed());
+    navGroupsEl.forEach(function (g, i) {
+      var id = g.dataset.groupId || String(i);
+      g.classList.toggle("collapsed", collapsed.has(id));
+    });
+  }
+  applyCollapsed();
+  navGroupsEl.forEach(function (g, i) {
+    var label = g.querySelector(".nav-group-label");
+    if (!label) return;
+    var id = g.dataset.groupId || String(i);
+    label.addEventListener("click", function (e) {
       e.preventDefault();
-      closeMobileNav();
-      closeToc();
-    }
+      var arr = getCollapsed();
+      var set = new Set(arr);
+      if (set.has(id)) set.delete(id); else set.add(id);
+      setCollapsed(Array.from(set));
+      applyCollapsed();
+    });
   });
 
-  window.addEventListener("hashchange", () => {
-    const { slug, sectionId } = parseHash();
-    if (!slug || !topics[slug]) {
-      showLanding();
-      return;
-    }
-    if (slug !== currentTopic) {
-      let idx = 0;
-      if (sectionId) {
-        idx = topics[slug].sections.findIndex((s) => s.id === sectionId);
-        if (idx < 0) idx = 0;
+  /* ── Boot: topic page ── */
+  if (pageType === "topic" && topicSlug) {
+    var topicDataEl = document.getElementById("topic-data");
+    if (topicDataEl) {
+      try {
+        var topicData = JSON.parse(topicDataEl.textContent);
+        initToc(topicData.sections);
+      } catch (e) {
+        // topic-data parse error — TOC stays empty
       }
-      showTopic(slug, idx);
-    } else if (sectionId) {
-      const idx = topics[currentTopic].sections.findIndex((s) => s.id === sectionId);
-      if (idx >= 0) scrollToSection(idx);
     }
-  });
-
-  window.addEventListener("resize", () => {
-    if (window.innerWidth > 800) closeMobileNav();
-    if (window.innerWidth >= 1200) closeToc();
-  });
-
-  // Boot: parse hash and apply initial view (landing or topic)
-  const initial = parseHash();
-  if (initial.slug && topics[initial.slug]) {
-    let initialIdx = 0;
-    if (initial.sectionId) {
-      initialIdx = topics[initial.slug].sections.findIndex((s) => s.id === initial.sectionId);
-      if (initialIdx < 0) initialIdx = 0;
-    }
-    showTopic(initial.slug, initialIdx);
-  } else {
-    showLanding();
+    setActiveNav();
+    highlightCode();
   }
 
-  /* ── Search modal ── */
-  const searchTrigger = document.getElementById("search-trigger");
-  const searchModal = document.getElementById("search-modal");
-  const searchBackdrop = document.getElementById("search-backdrop");
-  const searchInput = document.getElementById("search-input");
-  const searchResults = document.getElementById("search-results");
+  /* ── Search ── */
+  var searchTrigger = document.getElementById("search-trigger");
+  var searchModal = document.getElementById("search-modal");
+  var searchBackdrop = document.getElementById("search-backdrop");
+  var searchInput = document.getElementById("search-input");
+  var searchResults = document.getElementById("search-results");
 
-  let searchActiveIdx = -1;
-  let searchLastQuery = "";
-  let searchDebounceTimer = null;
-  let _cachedRecords = null;
+  var searchActiveIdx = -1;
+  var searchLastQuery = "";
+  var searchDebounceTimer = null;
+  var _cachedRecords = null;
+  var _fetchPromise = null;
 
   function searchModalIsOpen() {
     return searchModal && !searchModal.hasAttribute("hidden");
@@ -475,7 +327,9 @@
     searchActiveIdx = -1;
     searchLastQuery = "";
     searchResults.innerHTML = '<li class="search-empty">키워드를 입력하세요</li>';
-    setTimeout(() => searchInput?.focus(), 50);
+    setTimeout(function () { searchInput && searchInput.focus(); }, 50);
+    // Prefetch search index when modal opens
+    prefetchSearchIndex();
   }
 
   function closeSearchModal() {
@@ -483,7 +337,32 @@
     searchModal.setAttribute("hidden", "");
     searchBackdrop.setAttribute("hidden", "");
     document.body.style.overflow = "";
-    searchDebounceTimer && clearTimeout(searchDebounceTimer);
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  }
+
+  function prefetchSearchIndex() {
+    if (_cachedRecords || _fetchPromise) return;
+    _fetchPromise = fetch(searchIndexUrl)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        _cachedRecords = data.records || [];
+        _fetchPromise = null;
+      })
+      .catch(function () {
+        _cachedRecords = [];
+        _fetchPromise = null;
+      });
+  }
+
+  function getRecords() {
+    return _cachedRecords || [];
+  }
+
+  function escapeHtml(text) {
+    return String(text)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
   }
 
   function escapeAttr(text) {
@@ -498,10 +377,8 @@
   function tokenize(text) {
     var set = {};
     var str = String(text || "");
-    // ASCII identifiers/words
     var ascii = str.match(/[A-Za-z][A-Za-z0-9_]*/g);
     if (ascii) for (var i = 0; i < ascii.length; i++) set[ascii[i].toLowerCase()] = true;
-    // Korean words via Intl.Segmenter (fallback: Hanguls split)
     if (koSegmenter) {
       var segments = koSegmenter.segment(str);
       for (var seg of segments) {
@@ -521,16 +398,16 @@
   }
 
   function searchRecords(query, records) {
-    const tokens = tokenize(query).map(function (t) { return t.toLowerCase(); }).filter(Boolean);
+    var tokens = tokenize(query).map(function (t) { return t.toLowerCase(); }).filter(Boolean);
     if (!tokens.length) return [];
     return records
       .map(function (r) {
-        const sectionLower = r.sectionTitle.toLowerCase();
-        const bodyLower = r.body.toLowerCase();
+        var sectionLower = r.sectionTitle.toLowerCase();
+        var bodyLower = r.body.toLowerCase();
         var score = 0;
         for (var i = 0; i < tokens.length; i++) {
           var t = tokens[i];
-          if (sectionLower.includes(t)) score += 10;
+          if (sectionLower.indexOf(t) !== -1) score += 10;
           var re = new RegExp(escapeRegex(t), "g");
           var matches = bodyLower.match(re);
           if (matches) score += matches.length;
@@ -543,23 +420,16 @@
       .map(function (x) { return x.r; });
   }
 
-  function getRecords() {
-    if (_cachedRecords) return _cachedRecords;
-    var el = document.getElementById("search-index");
-    _cachedRecords = el ? (JSON.parse(el.textContent).records || []) : [];
-    return _cachedRecords;
-  }
-
   function renderEmpty(msg) {
     searchResults.innerHTML = "<li class=\"search-empty\">" + escapeHtml(msg) + "</li>";
     searchActiveIdx = -1;
   }
 
   function setActive(i) {
-    const items = searchResults.querySelectorAll(".search-result");
+    var items = searchResults.querySelectorAll(".search-result");
     if (!items.length) return;
     searchActiveIdx = ((i % items.length) + items.length) % items.length;
-    items.forEach((el, j) => {
+    items.forEach(function (el, j) {
       el.classList.toggle("active", j === searchActiveIdx);
       el.setAttribute("aria-selected", String(j === searchActiveIdx));
       if (j === searchActiveIdx) el.scrollIntoView({ block: "nearest" });
@@ -567,33 +437,33 @@
   }
 
   function makeSnippet(body, query) {
-    const lower = body.toLowerCase();
-    const idx = lower.indexOf(query.toLowerCase());
+    var lower = body.toLowerCase();
+    var idx = lower.indexOf(query.toLowerCase());
     if (idx === -1) return null;
-    const start = Math.max(0, idx - 60);
-    const end = Math.min(body.length, idx + query.length + 60);
-    let s = body.slice(start, end);
+    var start = Math.max(0, idx - 60);
+    var end = Math.min(body.length, idx + query.length + 60);
+    var s = body.slice(start, end);
     if (start > 0) s = "\u2026" + s;
     if (end < body.length) s = s + "\u2026";
     return highlightMatch(s, query);
   }
 
   function highlightMatch(text, query) {
-    const escaped = escapeHtml(text);
-    const re = new RegExp("(" + query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi");
+    var escaped = escapeHtml(text);
+    var re = new RegExp("(" + query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi");
     return escaped.replace(re, "<mark>$1</mark>");
   }
 
   function renderSearchResults(results, query) {
     searchResults.innerHTML = results
       .map(function (r, i) {
-        const chain = [];
+        var chain = [];
         if (r.topicGroup) chain.push(r.topicGroup);
         chain.push(r.topicTitle);
         chain.push(r.sectionTitle);
-        const breadcrumb = chain.filter(Boolean).join(" \u203A ");
-        const snippet = makeSnippet(r.body, query);
-        const snippetHtml = snippet
+        var breadcrumb = chain.filter(Boolean).join(" \u203A ");
+        var snippet = makeSnippet(r.body, query);
+        var snippetHtml = snippet
           ? '<div class="search-result-snippet">' + snippet + "</div>"
           : "";
         return (
@@ -625,6 +495,13 @@
       renderEmpty("키워드를 입력하세요");
       return;
     }
+    if (!getRecords().length && _fetchPromise) {
+      renderEmpty("검색 인덱스 로딩 중...");
+      _fetchPromise.then(function () {
+        if (searchInput.value.trim() === query) runSearch();
+      });
+      return;
+    }
     var records = getRecords();
     var results = searchRecords(query, records);
     if (!results.length) {
@@ -634,104 +511,31 @@
     renderSearchResults(results, query);
   }
 
-  function navigateToResult(targetSlug, sectionId, query) {
+  function navigateToResult(targetSlug, sectionId) {
     closeSearchModal();
-    if (targetSlug === currentTopic && sectionId) {
-      const idx = topics[targetSlug]?.sections.findIndex((s) => s.id === sectionId);
-      if (idx >= 0) {
-        scrollToSection(idx);
-        jumpToHighlight(query);
-        return;
-      }
-    }
-    if (topics[targetSlug]) {
-      let idx = 0;
-      if (sectionId) {
-        idx = topics[targetSlug].sections.findIndex((s) => s.id === sectionId);
-        if (idx < 0) idx = 0;
-      }
-      showTopic(targetSlug, idx);
-      if (query) jumpToHighlight(query);
-    } else {
-      showLanding();
-    }
-  }
-
-  function jumpToHighlight(query) {
-    if (!query) return;
-    requestAnimationFrame(function () {
-      var root = document.getElementById("content-viewport");
-      if (!root || !query) return;
-      var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-        acceptNode: function (n) {
-          var p = n.parentElement;
-          while (p && p !== root) {
-            if (p.tagName === "PRE" || p.tagName === "CODE")
-              return NodeFilter.FILTER_REJECT;
-            p = p.parentElement;
-          }
-          return n.nodeValue.toLowerCase().includes(query.toLowerCase())
-            ? NodeFilter.FILTER_ACCEPT
-            : NodeFilter.FILTER_REJECT;
-        },
-      });
-      var hits = [];
-      var n;
-      while ((n = walker.nextNode())) {
-        var text = n.nodeValue;
-        var idx = text.toLowerCase().indexOf(query.toLowerCase());
-        if (idx === -1) continue;
-        var before = text.slice(0, idx);
-        var matchText = text.slice(idx, idx + query.length);
-        var after = text.slice(idx + query.length);
-        var parent = n.parentNode;
-        var beforeNode = document.createTextNode(before);
-        var matchSpan = document.createElement("mark");
-        matchSpan.className = "search-hit-mark";
-        matchSpan.textContent = matchText;
-        var afterNode = document.createTextNode(after);
-        parent.insertBefore(beforeNode, n);
-        parent.insertBefore(matchSpan, n);
-        parent.replaceChild(afterNode, n);
-        hits.push({ node: matchSpan, text: matchText });
-      }
-      if (hits.length) {
-        var first = hits[0].node;
-        first.scrollIntoView({ block: "center", behavior: "smooth" });
-        // Fade out after 200ms, remove after 1500ms
-        setTimeout(function () {
-          hits.forEach(function (h) {
-            h.node.classList.add("fading");
-          });
-        }, 200);
-        setTimeout(function () {
-          hits.forEach(function (h) {
-            // unwrap: replace mark with text node
-            var p = h.node.parentNode;
-            if (p) {
-              var txt = document.createTextNode(h.text);
-              p.replaceChild(txt, h.node);
-            }
-          });
-        }, 1500);
-      }
-    });
+    var url = (baseUrl || "") + "topics/" + encodeURIComponent(targetSlug) + ".html";
+    if (sectionId) url += "#" + targetSlug + "-" + sectionId;
+    location.href = url;
   }
 
   // Click on search trigger
-  searchTrigger?.addEventListener("click", openSearchModal);
+  searchTrigger && searchTrigger.addEventListener("click", openSearchModal);
 
   // Backdrop click -> close
-  searchBackdrop?.addEventListener("click", closeSearchModal);
+  searchBackdrop && searchBackdrop.addEventListener("click", closeSearchModal);
+
+  // Close button (mobile)
+  var searchCloseBtn = document.getElementById("search-close-btn");
+  searchCloseBtn && searchCloseBtn.addEventListener("click", closeSearchModal);
 
   // Input handler with debounce
-  searchInput?.addEventListener("input", function () {
-    searchDebounceTimer && clearTimeout(searchDebounceTimer);
+  searchInput && searchInput.addEventListener("input", function () {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
     searchDebounceTimer = setTimeout(runSearch, 100);
   });
 
   // Keyboard inside modal
-  searchModal?.addEventListener("keydown", function (e) {
+  searchModal && searchModal.addEventListener("keydown", function (e) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setActive(searchActiveIdx + 1);
@@ -743,7 +547,7 @@
       var items = searchResults.querySelectorAll(".search-result");
       var target = items[searchActiveIdx];
       if (target) {
-        navigateToResult(target.dataset.slug, target.dataset.section, searchLastQuery);
+        navigateToResult(target.dataset.slug, target.dataset.section);
       }
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -752,21 +556,19 @@
   });
 
   // Click on a result item
-  searchResults?.addEventListener("click", function (e) {
+  searchResults && searchResults.addEventListener("click", function (e) {
     var item = e.target.closest(".search-result");
     if (!item) return;
-    navigateToResult(item.dataset.slug, item.dataset.section, searchLastQuery);
+    navigateToResult(item.dataset.slug, item.dataset.section);
   });
 
-  // Global keyboard shortcuts
+  /* ── Global keyboard shortcuts ── */
   document.addEventListener("keydown", function (e) {
-    // Cmd/Ctrl+K
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
       openSearchModal();
       return;
     }
-    // "/" outside input fields
     if (
       e.key === "/" &&
       !/^(input|textarea|select)$/i.test(e.target.tagName) &&
@@ -775,5 +577,26 @@
       e.preventDefault();
       openSearchModal();
     }
+  });
+
+  /* ── Escape key (global) ── */
+  document.addEventListener("keydown", function (e) {
+    if (e.target.matches("input, textarea, select")) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeMobileNav();
+      closeToc();
+    }
+  });
+
+  /* ── Resize handler ── */
+  window.addEventListener("resize", function () {
+    if (window.innerWidth > 800) closeMobileNav();
+    if (window.innerWidth >= 1200) closeToc();
+  });
+
+  /* ── Lazy prefetch search index on boot (idle) ── */
+  (window.requestIdleCallback || function (cb) { setTimeout(cb, 500); })(function () {
+    prefetchSearchIndex();
   });
 })();
