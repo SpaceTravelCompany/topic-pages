@@ -1079,8 +1079,8 @@ html[data-theme="light"] .theme-toggle .theme-icon-light {
   overflow-wrap: break-word;
 }
 
-body[data-page-type="topic"] .prose {
-  max-width: 58rem;
+body[data-page-type="topic"] .topic-section {
+  width: min(100%, 58rem);
   margin-inline: auto;
 }
 
