@@ -238,7 +238,7 @@
   var SIZES = ["sm", "base", "lg"];
   function getReaderSize() {
     var v = localStorage.getItem(READER_KEY);
-    return SIZES.indexOf(v) !== -1 ? v : "sm";
+    return SIZES.indexOf(v) !== -1 ? v : "base";
   }
   function applyReaderSize(v) {
     if (viewportEl) viewportEl.setAttribute("data-reader-size", v);
