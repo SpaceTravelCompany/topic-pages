@@ -650,6 +650,12 @@ a.brand-btn:visited { color: var(--text); }
   text-wrap: pretty;
 }
 
+.prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
 .prose ul,
 .prose ol {
   margin: 0 0 1.15rem;
