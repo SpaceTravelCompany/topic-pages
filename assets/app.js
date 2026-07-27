@@ -218,9 +218,26 @@
     }
   });
 
+  /* ── Nav panel scroll save/restore ──
+     왼쪽 카테고리(nav-panel) 스크롤 위치를 localStorage에 저장.
+     저장 시점: nav 내부 링크 클릭(토픽/랜딩 이동) 직전 + pagehide.
+     복원 시점: 페이지 진입 시. 저장 위치가 없으면 active 버튼으로 스크롤(fallback).
+  */
+  var NAV_SCROLL_KEY = STORAGE_PREFIX + "-nav-scroll";
+
+  function getNavScroll() {
+    var v = null;
+    try { v = JSON.parse(localStorage.getItem(NAV_SCROLL_KEY)); } catch (e) {}
+    return typeof v === "number" && isFinite(v) ? v : null;
+  }
+  function saveNavScroll(top) {
+    try { localStorage.setItem(NAV_SCROLL_KEY, JSON.stringify(top)); }
+    catch (e) {}
+  }
+
   /* ── Nav active state ──
      active 토픽 버튼 표시 + 포함 그룹이 접혀 있으면 펼치고,
-     nav-panel 스크롤 컨테이너 안에서 버튼이 보이도록 스크롤.
+     nav-panel 스크롤을 저장 위치로 복원(없으면 active 버튼이 보이도록 스크롤).
   */
   function scrollActiveNavIntoView(btn) {
     if (!navPanel || !btn) return;
@@ -245,7 +262,11 @@
 
     if (!activeBtn || !navPanel) return;
 
-    // 선택된 항목이 접힌 그룹 안이면 펼친다(저장된 collapsed 목록에서 제거)
+    // 저장된 nav 스크롤이 있으면 이미 복원됐으므로(applyCollapsed 직후 즉시 적용)
+    // 그룹 펼치기/스크롤을 건드리지 않고 active 표시만. 사용자가 마지막으로 본 위치 보존.
+    if (getNavScroll() != null) return;
+
+    // 저장 위치가 없을 때만: active 토픽이 접힌 그룹 안이면 펼친다.
     var group = activeBtn.closest(".nav-group");
     if (group && group.classList.contains("collapsed")) {
       var id = group.dataset.groupId;
@@ -259,9 +280,24 @@
       }
     }
 
-    // 펼치기 적용 후 레이아웃 갱신을 거쳐 스크롤(정확한 위치 계산)
+    // 펼치기 적용 후 레이아웃 갱신을 거쳐 스크롤(정확한 위치 계산).
+    // 저장 위치 없을 때만 실행되므로 fallback 경로.
     requestAnimationFrame(function () {
       scrollActiveNavIntoView(activeBtn);
+    });
+  }
+
+  // nav 내부 링크 클릭 시 현재 nav 스크롤 저장 (토픽/랜딩 이동 전).
+  // 외부 레퍼런스(target=_blank)는 같은 탭 이탈이 아니므로 제외.
+  if (navPanel) {
+    navPanel.addEventListener("click", function () {
+      saveNavScroll(navPanel.scrollTop);
+    });
+  }
+  // pagehide 보조: 새로고침/뒤로가기/검색 결과/주소 직접 입력 등 nav 클릭이 아닌 이탈 커버.
+  if (navPanel) {
+    window.addEventListener("pagehide", function () {
+      saveNavScroll(navPanel.scrollTop);
     });
   }
 
@@ -323,6 +359,27 @@
     });
   }
   applyCollapsed();
+  // 저장된 nav 스크롤이 있으면 첫 페인트 전에 즉시 복원(깜빡임 방지).
+  // active 토픽이 접힌 그룹 안이면 먼저 펼친 뒤 스크롤 적용.
+  if (navPanel && pageType === "topic" && topicSlug) {
+    var savedNavScroll = getNavScroll();
+    if (savedNavScroll != null) {
+      var activeBtn0 = document.querySelector('.topic-btn[data-topic="' + topicSlug + '"]');
+      var group0 = activeBtn0 ? activeBtn0.closest(".nav-group") : null;
+      if (group0 && group0.classList.contains("collapsed")) {
+        var id0 = group0.dataset.groupId;
+        if (id0) {
+          var set0 = new Set(getCollapsed());
+          if (set0.has(id0)) {
+            set0.delete(id0);
+            setCollapsed(Array.from(set0));
+            applyCollapsed();
+          }
+        }
+      }
+      navPanel.scrollTop = savedNavScroll;
+    }
+  }
   navGroupsEl.forEach(function (g, i) {
     var label = g.querySelector(".nav-group-label");
     if (!label) return;
