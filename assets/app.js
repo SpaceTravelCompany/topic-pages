@@ -1,6 +1,12 @@
 (function () {
   "use strict";
 
+  // 브라우저 자동 스크롤 복원 비활성화 — 토픽별 스크롤을 직접 복원.
+  // 최상단에서 가능한 한 빨리 설정해야 브라우저가 개입하기 전에 적용됨.
+  if (window.history && "scrollRestoration" in window.history) {
+    window.history.scrollRestoration = "manual";
+  }
+
   var pageType = document.body.dataset.pageType || "landing";
   var baseUrl = document.body.dataset.baseUrl || "";
   var topicSlug = document.body.dataset.topicSlug || "";
@@ -212,12 +218,50 @@
     }
   });
 
-  /* ── Nav active state ── */
+  /* ── Nav active state ──
+     active 토픽 버튼 표시 + 포함 그룹이 접혀 있으면 펼치고,
+     nav-panel 스크롤 컨테이너 안에서 버튼이 보이도록 스크롤.
+  */
+  function scrollActiveNavIntoView(btn) {
+    if (!navPanel || !btn) return;
+    var btnRect = btn.getBoundingClientRect();
+    var panelRect = navPanel.getBoundingClientRect();
+    var margin = 12;
+    if (btnRect.top < panelRect.top + margin) {
+      navPanel.scrollTop -= panelRect.top + margin - btnRect.top;
+    } else if (btnRect.bottom > panelRect.bottom - margin) {
+      navPanel.scrollTop += btnRect.bottom - (panelRect.bottom - margin);
+    }
+  }
+
   function setActiveNav() {
     if (!topicSlug) return;
-    var btns = document.querySelectorAll(".topic-btn");
-    btns.forEach(function (btn) {
-      btn.classList.toggle("active", btn.dataset.topic === topicSlug);
+    var activeBtn = null;
+    document.querySelectorAll(".topic-btn").forEach(function (btn) {
+      var isActive = btn.dataset.topic === topicSlug;
+      btn.classList.toggle("active", isActive);
+      if (isActive) activeBtn = btn;
+    });
+
+    if (!activeBtn || !navPanel) return;
+
+    // 선택된 항목이 접힌 그룹 안이면 펼친다(저장된 collapsed 목록에서 제거)
+    var group = activeBtn.closest(".nav-group");
+    if (group && group.classList.contains("collapsed")) {
+      var id = group.dataset.groupId;
+      if (id) {
+        var set = new Set(getCollapsed());
+        if (set.has(id)) {
+          set.delete(id);
+          setCollapsed(Array.from(set));
+          applyCollapsed();
+        }
+      }
+    }
+
+    // 펼치기 적용 후 레이아웃 갱신을 거쳐 스크롤(정확한 위치 계산)
+    requestAnimationFrame(function () {
+      scrollActiveNavIntoView(activeBtn);
     });
   }
 
@@ -306,6 +350,82 @@
     }
     setActiveNav();
     highlightCode();
+    restoreTopicScroll(topicSlug);
+  }
+
+  // 콘텐츠(KaTeX/Prism/이미지) 렌더링 완료 후 한 번 더 복원 시도.
+  // rAF 기반 폴링이 load보다 빨리 끝나 브라우저가 0으로 리셋하는 경우 보정.
+  if (viewportEl && pageType === "topic" && topicSlug) {
+    window.addEventListener("load", function () {
+      setTimeout(function () { restoreTopicScroll(topicSlug); }, 0);
+    });
+  }
+
+  /* ── Per-topic content scroll save/restore ──
+     토픽별 본문(콘텐츠 뷰포트) 스크롤 위치를 localStorage에 저장.
+     같은 토픽으로 다시 들어오면 복원. 해시가 있으면 해시 우선.
+  */
+  var SCROLL_KEY = STORAGE_PREFIX + "-scroll";
+  var SCROLL_DEBOUNCE_MS = 220;
+  var scrollSaveTimer = null;
+
+  function getScrollMap() {
+    try { return JSON.parse(localStorage.getItem(SCROLL_KEY) || "{}"); }
+    catch (e) { return {}; }
+  }
+  function setScrollMap(map) {
+    try { localStorage.setItem(SCROLL_KEY, JSON.stringify(map)); }
+    catch (e) {}
+  }
+  function saveTopicScroll(slug, top) {
+    if (!slug) return;
+    var map = getScrollMap();
+    map[slug] = top;
+    setScrollMap(map);
+  }
+
+  function restoreTopicScroll(slug) {
+    if (!viewportEl || !slug) return;
+    // 해시로 직접 진입한 경우: 대상 요소가 있으면 해시 우선, 없으면 저장 위치 복원.
+    if (location.hash) {
+      var hashTarget = document.getElementById(location.hash.slice(1));
+      if (hashTarget) return;
+    }
+    var map = getScrollMap();
+    var top = map[slug];
+    if (typeof top !== "number" || !isFinite(top) || top <= 0) return;
+
+    // 콘텐츠(Prism/KaTeX/이미지)가 렌더링되어 scrollHeight가 충분히 커진 뒤 복원.
+    // 준비되지 않았으면 폴링하며 대기(최대 ~2s).
+    var tries = 0;
+    var MAX_TRIES = 20;
+    function attempt() {
+      tries++;
+      // 일부러 여유를 둬서 대략 그 위치 근처까지 콘텐츠가 펼쳐졌는지 확인
+      if (viewportEl.scrollHeight < top + 1 && tries < MAX_TRIES) {
+        requestAnimationFrame(attempt);
+        return;
+      }
+      viewportEl.scrollTo({ top: top });
+    }
+    requestAnimationFrame(attempt);
+  }
+
+  if (viewportEl && pageType === "topic" && topicSlug) {
+    viewportEl.addEventListener("scroll", function () {
+      if (scrollSaveTimer) clearTimeout(scrollSaveTimer);
+      scrollSaveTimer = setTimeout(function () {
+        saveTopicScroll(topicSlug, viewportEl.scrollTop);
+      }, SCROLL_DEBOUNCE_MS);
+    }, { passive: true });
+    // 페이지를 떠나기 직전 마지막 위치 저장 (디바운스 미처 저장 못한 경우 대비)
+    window.addEventListener("pagehide", function () {
+      if (scrollSaveTimer) {
+        clearTimeout(scrollSaveTimer);
+        scrollSaveTimer = null;
+      }
+      saveTopicScroll(topicSlug, viewportEl.scrollTop);
+    });
   }
 
   /* ── Search ── */
