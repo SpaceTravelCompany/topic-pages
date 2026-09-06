@@ -1789,6 +1789,11 @@ body[data-page-type="landing"] .toc-toggle {
   .prose h2, .prose h3 { page-break-after: avoid; }
   .prose pre { page-break-inside: avoid; }
   .app { display: block !important; height: auto !important; }
+
+  /* SVG 간선은 화면 전용(폴백 전환 규칙은 SVG 섹션 뒤의 별도 @media print 블록).
+     .fc-edges/.fc-edge-labels는 기본 규칙에 display가 없어 여기서 꺼도 충돌 없음. */
+  .fc-edges,
+  .fc-edge-labels { display: none; }
 }
 
 /* ── Prose heading anchor target ── */
@@ -1997,4 +2002,12 @@ body[data-page-type="landing"] .toc-toggle {
   position: absolute;
   transform: translate(-50%, -50%);
   white-space: nowrap;
+}
+
+/* 인쇄: SVG 간선은 화면 기하로 실측되어 인쇄 재배치와 어긋나고(RO 미감지),
+   no-JS 폴백 커넥터가 인쇄 엔진 레이아웃을 그대로 따르므로 폴백으로 출력.
+   이 블록은 SVG 섹션 규칙보다 뒤에 있어야 동일 명시도에서 이긴다. */
+@media print {
+  .flowchart-diagram.has-svg-edges { row-gap: 0; }
+  .flowchart-diagram.has-svg-edges .fc-connectors { display: flex; }
 }

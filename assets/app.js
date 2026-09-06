@@ -439,7 +439,10 @@
       drawFns.push(draw);
       draw();
 
-      // 레이아웃 변화(리사이즈·회전·폰트 로딩)에 추적. 콜백은 SVG 속성만 바꿔 RO 루프 없음.
+      // 레이아웃 변화(리사이즈·회전·폰트 로딩)에 추적.
+      // draw()는 .has-svg-edges로 루트 크기를 바꿀 수 있어 RO가 재호출되지만,
+      // 간선 성립 여부(y2>y1)는 폴백 행 숨김 여부와 무관(행은 항상 위→아래 적층)하므로
+      // drawn 수가 불변 → 클래스 토글이 수렴하고 RO 루프는 발생하지 않는다.
       if (typeof ResizeObserver !== "undefined") {
         var raf = 0;
         new ResizeObserver(function () {
