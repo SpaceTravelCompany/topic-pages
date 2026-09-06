@@ -560,7 +560,7 @@ a.brand-btn:visited { color: var(--text); }
   min-width: 2.75rem;
   min-height: 2.75rem;
   padding: 0;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
@@ -1172,15 +1172,23 @@ body[data-page-type="topic"] .topic-section {
 }
 
 .cmdstack-arrow {
-  display: block;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   color: var(--accent);
-  font-weight: 700;
-  font-size: 1rem;
-  line-height: 1.2;
+}
+.cmdstack-arrow::before {
+  content: "";
+  display: block;
+  width: 2px;
+  height: 0.6rem;
+  background: var(--accent);
+  border-radius: 2px;
 }
 .cmdstack-arrow::after {
-  content: "↓";
+  content: "▼";
+  font-size: 0.65rem;
+  line-height: 1;
 }
 
 /* ── relflow ── */
@@ -1236,12 +1244,25 @@ body[data-page-type="topic"] .topic-section {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 2.5rem;
+  gap: 0.3rem;
+  min-width: 3.5rem;
   color: var(--accent);
-  font-size: 1.7rem;
+  font-size: 1.4rem;
   font-weight: 700;
   line-height: 1;
   text-align: center;
+}
+
+/* Horizontal stems — turns the floating glyph into a real connector line.
+   Mobile rotates the whole construct 90deg, so it stays a proper connector. */
+.relflow-arrow::before,
+.relflow-arrow::after {
+  content: "";
+  height: 2px;
+  width: 1rem;
+  flex-shrink: 0;
+  background: var(--accent);
+  border-radius: 2px;
 }
 
 .relflow-foot {
@@ -1447,6 +1468,7 @@ body[data-page-type="topic"] .topic-section {
     top: 0;
     height: 100vh;
     overflow-y: auto;
+    background: var(--surface);
     scrollbar-width: thin;
   }
 
@@ -1497,7 +1519,7 @@ body[data-page-type="topic"] .topic-section {
   align-items: center;
   gap: 0.3rem;
   padding: 0.3rem 0.65rem;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text-muted);
@@ -1510,7 +1532,6 @@ body[data-page-type="topic"] .topic-section {
 
 .toc-toggle:hover {
   color: var(--text);
-  border-color: var(--accent-glow);
 }
 
 @media (max-width: 1199px) {
@@ -1898,7 +1919,7 @@ body[data-page-type="landing"] .toc-toggle {
   display: flex;
   justify-content: center;
   gap: 1rem;
-  padding: 0.2rem 0;
+  padding: 0.35rem 0;
 }
 
 .fc-conn {
@@ -1908,11 +1929,20 @@ body[data-page-type="landing"] .toc-toggle {
   color: var(--accent);
 }
 
+/* Vertical stem — turns the floating glyph into a real connector line */
+.fc-conn::before {
+  content: "";
+  display: block;
+  width: 2px;
+  height: 1rem;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
 .fc-conn-arrow {
   display: block;
-  font-size: 1.4rem;
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: 0.8rem;
+  line-height: 1;
   text-align: center;
 }
 
