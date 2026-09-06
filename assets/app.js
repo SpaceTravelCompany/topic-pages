@@ -330,8 +330,138 @@
   readerToggleBtn && readerToggleBtn.addEventListener("click", function () {
     var i = SIZES.indexOf(getReaderSize());
     applyReaderSize(SIZES[(i + 1) % SIZES.length]);
+    // 글자 크기가 바뀌면 노드 기하가 달라지므로 SVG 간선 다시 그리기.
+    if (flowchartRedrawAll) flowchartRedrawAll();
   });
   applyReaderSize(getReaderSize());
+
+  /* ── Flowchart true edges (SVG overlay) ──
+     빌드 시 렌더러(lib/flowchart.js)는 레벨별 노드 행 + 폴백 화살표 행
+     (.fc-conn[data-from][data-to], 라벨 포함)만 출력한다. 행 가운데 몰아넣은
+     글리프는 실제 부모-자식 대응이 없어 "어디를 향하는지"가 틀려 보인다.
+     이 코드는 폴백 행에서 간선 목록을 읽어 실제 노드 기하를 실측한 뒤,
+     부모 하단 중앙 → 자식 상단 중앙을 잇는 직교 엘보우를 SVG로 그린다.
+     성공한 다이어그램에만 .has-svg-edges가 붙어 폴백 행이 숨는다.
+     JS가 없으면 폴백 화살표가 그대로 보여 최소한의 모양은 유지된다.
+     제한: 레벨을 건너뛰는 간선은 폴백 DOM에 없으므로 그리지 않는다(기존과 동일).
+     LR 방향은 행 레이아웃이 TD 전제라 미지원(기존과 동일, 전 콘텐츠 TD).
+  */
+  var flowchartRedrawAll = null;
+
+  function initFlowchartEdges() {
+    var diagrams = Array.prototype.slice.call(document.querySelectorAll(".flowchart-diagram"));
+    if (!diagrams.length) return;
+
+    var SVGNS = "http://www.w3.org/2000/svg";
+    var drawFns = [];
+
+    diagrams.forEach(function (root, di) {
+      var conns = Array.prototype.slice.call(root.querySelectorAll(".fc-conn[data-from][data-to]"));
+      if (!conns.length) return;
+
+      var edges = conns.map(function (c) {
+        var labelEl = c.querySelector(".fc-conn-label");
+        return {
+          from: c.getAttribute("data-from"),
+          to: c.getAttribute("data-to"),
+          label: labelEl ? labelEl.textContent : "",
+        };
+      });
+
+      // marker id는 다이어그램별 고유 (한 페이지에 여러 다이어그램).
+      var svg = document.createElementNS(SVGNS, "svg");
+      svg.setAttribute("class", "fc-edges");
+      svg.setAttribute("aria-hidden", "true");
+      var defs = document.createElementNS(SVGNS, "defs");
+      var markerId = "fc-edge-head-" + di;
+      var marker = document.createElementNS(SVGNS, "marker");
+      marker.setAttribute("id", markerId);
+      marker.setAttribute("viewBox", "0 0 10 10");
+      marker.setAttribute("refX", "8");
+      marker.setAttribute("refY", "5");
+      marker.setAttribute("markerWidth", "7");
+      marker.setAttribute("markerHeight", "7");
+      marker.setAttribute("orient", "auto-start-reverse");
+      var mpath = document.createElementNS(SVGNS, "path");
+      mpath.setAttribute("d", "M 0 1 L 9 5 L 0 9 z");
+      mpath.setAttribute("class", "fc-edge-head");
+      marker.appendChild(mpath);
+      defs.appendChild(marker);
+      svg.appendChild(defs);
+      root.insertBefore(svg, root.firstChild);
+
+      var labelLayer = document.createElement("div");
+      labelLayer.setAttribute("class", "fc-edge-labels");
+      labelLayer.setAttribute("aria-hidden", "true");
+      root.appendChild(labelLayer);
+
+      // id는 파서 정규식([A-Za-z0-9_]+) 산출물이라 셀렉터에 안전.
+      // 다이어그램 루트 기준으로 조회해 다른 다이어그램과 충돌 방지.
+      function findNode(id) {
+        return root.querySelector('.fc-node[data-fc-id="' + id + '"]');
+      }
+
+      function draw() {
+        Array.prototype.slice.call(svg.querySelectorAll("path.fc-edge-line")).forEach(function (p) { p.remove(); });
+        labelLayer.innerHTML = "";
+        var rootRect = root.getBoundingClientRect();
+        var drawn = 0;
+        edges.forEach(function (e) {
+          var fromEl = findNode(e.from);
+          var toEl = findNode(e.to);
+          if (!fromEl || !toEl) return;
+          var fr = fromEl.getBoundingClientRect();
+          var tr = toEl.getBoundingClientRect();
+          var x1 = fr.left + fr.width / 2 - rootRect.left;
+          var y1 = fr.bottom - rootRect.top;
+          var x2 = tr.left + tr.width / 2 - rootRect.left;
+          var y2 = tr.top - rootRect.top;
+          if (y2 <= y1) return; // 같은 행/역행 간선은 하향 엘보우 불가 — 그리지 않음
+          var midY = (y1 + y2) / 2;
+          var path = document.createElementNS(SVGNS, "path");
+          path.setAttribute("d", "M " + x1 + " " + y1 + " L " + x1 + " " + midY + " L " + x2 + " " + midY + " L " + x2 + " " + y2);
+          path.setAttribute("class", "fc-edge-line");
+          path.setAttribute("marker-end", "url(#" + markerId + ")");
+          svg.appendChild(path);
+          drawn++;
+          if (e.label) {
+            var s = document.createElement("span");
+            s.className = "fc-conn-label";
+            s.textContent = e.label;
+            s.style.left = ((x1 + x2) / 2) + "px";
+            s.style.top = midY + "px";
+            labelLayer.appendChild(s);
+          }
+        });
+        root.classList.toggle("has-svg-edges", drawn > 0);
+      }
+
+      drawFns.push(draw);
+      draw();
+
+      // 레이아웃 변화(리사이즈·회전·폰트 로딩)에 추적. 콜백은 SVG 속성만 바꿔 RO 루프 없음.
+      if (typeof ResizeObserver !== "undefined") {
+        var raf = 0;
+        new ResizeObserver(function () {
+          cancelAnimationFrame(raf);
+          raf = requestAnimationFrame(draw);
+        }).observe(root);
+      }
+    });
+
+    flowchartRedrawAll = function () { drawFns.forEach(function (d) { d(); }); };
+
+    var rszTimer = null;
+    window.addEventListener("resize", function () {
+      if (rszTimer) clearTimeout(rszTimer);
+      rszTimer = setTimeout(function () { if (flowchartRedrawAll) flowchartRedrawAll(); }, 150);
+    });
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(function () { if (flowchartRedrawAll) flowchartRedrawAll(); });
+    }
+  }
+
+  initFlowchartEdges();
 
   /* ── Nav toggle ── */
   navToggle && navToggle.addEventListener("click", function () {

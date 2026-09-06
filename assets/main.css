@@ -1887,6 +1887,7 @@ body[data-page-type="landing"] .toc-toggle {
   gap: 0;
   overflow-x: auto;
   padding: 0.5rem 0;
+  position: relative;
 }
 
 .fc-row {
@@ -1953,4 +1954,47 @@ body[data-page-type="landing"] .toc-toggle {
   padding: 0.1rem 0.4rem;
   border-radius: 3px;
   border: 1px solid var(--border);
+}
+
+/* ── Flowchart true edges (SVG overlay, drawn by app.js) ──
+   .fc-connectors 행은 폴백(no-JS)용. JS가 실측 간선을 그리면
+   .has-svg-edges가 붙어 폴백 행이 숨고 행 간격이 벌어진다. */
+.fc-edges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.fc-edges .fc-edge-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2px;
+}
+
+.fc-edges .fc-edge-head {
+  fill: var(--accent);
+  stroke: none;
+}
+
+.flowchart-diagram.has-svg-edges {
+  row-gap: 2.4rem;
+}
+
+.flowchart-diagram.has-svg-edges .fc-connectors {
+  display: none;
+}
+
+.fc-edge-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fc-edge-labels .fc-conn-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
 }
