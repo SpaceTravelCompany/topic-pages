@@ -23,7 +23,7 @@ import { buildSearchIndex } from "../lib/search-index.js";
  * site.json 스키마:
  *   {
  *     "title": "사이트 이름",
- *     "subtitle": "부제목",
+ *     "subtitle": "부제목 (선택, 없으면 nav·랜딩에 렌더하지 않음)",
  *     "brandMark": "Tp",                       // nav 좌측 마크 (선택, 기본: title 앞 2글자)
  *     "brandMarkSvg": "<svg ...>...</svg>",    // 인라인 SVG 브랜드 마크 (선택, brandMark보다 우선, XSS 필터 통과 시만 적용)
  *     "storagePrefix": "my-ref",               // localStorage 네임스페이스 (선택, 기본: "topic-pages")
@@ -200,13 +200,16 @@ function renderNav(site, linkFn, activeTopicSlug, landingHref) {
     ? `${brandSvg}`  // 인라인 SVG — validateSvg 통과한 안전한 마크업
     : escapeHtml((site.brandMark || title).slice(0, 2));  // 폴백: 텍스트
 
+  const subtitleHtml = site.subtitle
+    ? `\n    <p class="brand-sub">${escapeHtml(site.subtitle)}</p>`
+    : "";
+
   return `<nav class="nav-panel" id="nav" aria-label="주제">
   <div class="nav-brand">
     <a class="brand-btn" href="${landingHref}">
       <span class="brand-mark">${brandMarkInner}</span>
       <span class="brand-text">${escapeHtml(title)}</span>
-    </a>
-    <p class="brand-sub">${escapeHtml(site.subtitle || "")}</p>
+    </a>${subtitleHtml}
   </div>
   ${groups}
 ${referencesHtml}
@@ -537,8 +540,11 @@ ${cards}
     })
     .join("\n");
 
-  const landingHtml = `    <article class="content-viewport prose" id="content-viewport-landing" role="tabpanel">
-  <p class="landing-subtitle">${escapeHtml(site.subtitle || "")}</p>
+  const landingSubtitleHtml = site.subtitle
+    ? `\n  <p class="landing-subtitle">${escapeHtml(site.subtitle)}</p>`
+    : "";
+
+  const landingHtml = `    <article class="content-viewport prose" id="content-viewport-landing" role="tabpanel">${landingSubtitleHtml}
 ${sectionGroupsHtml}
     </article>`;
 

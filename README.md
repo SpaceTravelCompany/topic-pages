@@ -86,7 +86,7 @@ node scripts/build.mjs [옵션]
 ```jsonc
 {
   "title": "사이트 이름",                  // <title>, nav 브랜드에 사용
-  "subtitle": "부제목",                    // nav 브랜드 부제목
+  "subtitle": "부제목",                    // (선택) nav 브랜드·랜딩에 표시, 없으면 렌더하지 않음
   "brandMark": "Tp",                       // nav 좌측 2글자 마크 (선택, 기본: title 앞 2글자)
   "storagePrefix": "my-ref",               // localStorage 네임스페이스 (선택, 기본: "topic-pages")
   "references": [                          // nav 하단 외부 링크 (선택)
