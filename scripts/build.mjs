@@ -387,7 +387,7 @@ function bodyFontOf(site) {
 function pageShell(opts) {
   const {
     site, title, description, canonicalUrl, bodyHtml,
-    pageType, activeTopicSlug, topicTitle, asset, linkToTopic,
+    pageType, activeTopicSlug, asset, linkToTopic,
     topicDataJson, hasCustomCss, hasCustomJs, themeStyle,
   } = opts;
   const storagePrefix = escapeHtml(site?.storagePrefix || "topic-pages");
@@ -586,7 +586,6 @@ ${landingHtml}
     bodyHtml,
     pageType: "landing",
     activeTopicSlug: "",
-    topicTitle: site?.title || "",
     asset,
     linkToTopic,
     topicDataJson: null,
@@ -594,6 +593,39 @@ ${landingHtml}
     hasCustomCss: customAssets?.hasCustomCss ?? false,
     hasCustomJs: customAssets?.hasCustomJs ?? false,
   });
+}
+
+// "동기화 (Synchronization)" → ["동기화", "Synchronization"]. 끝이 괄호로 닫힌 제목만 둘로 나눈다.
+function splitTitle(title) {
+  const m = /^(.+?)\s*\((.+)\)\s*$/.exec(String(title).trim());
+  return m ? [m[1].trim(), m[2].trim()] : [String(title).trim()];
+}
+
+// site.sections 를 펼친 순서대로 이전/다음 주제와 소속 그룹을 구한다. 같은 slug 가 여러 번 나오면 첫 항목 기준.
+function locateTopic(site, slug) {
+  const flat = [];
+  for (const section of site.sections || []) {
+    for (const topic of section.topics || []) flat.push({ topic, group: section.title || "" });
+  }
+  const idx = flat.findIndex((entry) => entry.topic.slug === slug);
+  if (idx < 0) return { group: "", prev: null, next: null };
+  return {
+    group: flat[idx].group,
+    prev: idx > 0 ? flat[idx - 1].topic : null,
+    next: idx < flat.length - 1 ? flat[idx + 1].topic : null,
+  };
+}
+
+function renderPager(prev, next, linkToTopic) {
+  if (!prev && !next) return "";
+  const card = (topic, cls, label) => `
+      <a class="pager-card ${cls}" href="${linkToTopic(topic.slug)}" rel="${cls === "pager-prev" ? "prev" : "next"}">
+        <span class="pager-label">${label}</span>
+        <span class="pager-title">${escapeHtml(topic.title)}</span>
+      </a>`;
+  return `
+    <nav class="pager" aria-label="이전·다음 주제">${prev ? card(prev, "pager-prev", "← 이전") : ""}${next ? card(next, "pager-next", "다음 →") : ""}
+    </nav>`;
 }
 
 function renderTopicPage(siteData, slug, topic, customAssets) {
@@ -614,8 +646,23 @@ function renderTopicPage(siteData, slug, topic, customAssets) {
     })
     .join("\n");
 
-  const topicHtml = `    <article class="content-viewport prose" id="content-viewport" role="tabpanel">
+  const { group, prev, next } = locateTopic(site, slug);
+  const titleLines = splitTitle(topic.title).map(escapeHtml);
+  const breadcrumbHtml = group
+    ? `<p class="breadcrumb">${escapeHtml(group)} / ${escapeHtml(topic.title)}</p>`
+    : `<p class="breadcrumb">${escapeHtml(topic.title)}</p>`;
+  const summaryHtml = topic.summary
+    ? `\n        <p class="article-summary">${escapeHtml(topic.summary)}</p>`
+    : "";
+
+  const topicHtml = `    <article class="topic-article">
+      <header class="article-head">
+        ${breadcrumbHtml}
+        <h1 class="article-title">${titleLines.join("<br>")}</h1>${summaryHtml}
+      </header>
+      <div class="content-viewport prose" id="content-viewport">
 ${sectionsHtml}
+      </div>${renderPager(prev, next, linkToTopic)}
     </article>`;
 
   const bodyHtml = `  <div class="view-topic" id="view-topic">
@@ -644,7 +691,6 @@ ${topicHtml}
     bodyHtml,
     pageType: "topic",
     activeTopicSlug: slug,
-    topicTitle: topic.title,
     asset,
     linkToTopic,
     topicDataJson,

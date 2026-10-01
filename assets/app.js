@@ -7,6 +7,12 @@
     window.history.scrollRestoration = "manual";
   }
 
+  if (typeof Prism !== "undefined" && Prism.plugins && Prism.plugins.toolbar && Prism.hooks.all.complete) {
+    Prism.hooks.all.complete = Prism.hooks.all.complete.filter(function (fn) {
+      return fn !== Prism.plugins.toolbar.hook;
+    });
+  }
+
   var pageType = document.body.dataset.pageType || "landing";
   var baseUrl = document.body.dataset.baseUrl || "";
   var topicSlug = document.body.dataset.topicSlug || "";
@@ -76,25 +82,27 @@
     requestAnimationFrame(processChunk);
   }
 
-  /* ── Copy code button (event delegation) ── */
+  /* ── Copy code button (event delegation) ──
+     마크업은 lib/markdown.js: .code-block > .code-head > button.copy-code-btn. 피드백은 버튼 글자를 잠깐 바꾼다. */
+  var COPY_LABEL = "복사";
+  var COPY_FEEDBACK_MS = 1600;
+
   document.addEventListener("click", async function (e) {
     var btn = e.target.closest(".copy-code-btn");
     if (!btn) return;
-    var toolbar = btn.closest(".code-toolbar");
-    if (!toolbar) return;
-    var code = toolbar.querySelector("code");
-    var text = code ? code.innerText : "";
-    var toast = toolbar.querySelector(".copy-toast");
+    var block = btn.closest(".code-block");
+    var code = block && block.querySelector("code");
+    if (!code) return;
+    var text = code.innerText;
 
     function show(msg, ok) {
-      if (!toast) return;
-      toast.textContent = msg;
-      toast.classList.add("show");
-      btn.classList.toggle("success", ok);
-      setTimeout(function () {
-        toast.classList.remove("show");
-        btn.classList.remove("success");
-      }, 1600);
+      btn.textContent = msg;
+      btn.classList.toggle("copied", ok);
+      clearTimeout(btn._copyTimer);
+      btn._copyTimer = setTimeout(function () {
+        btn.textContent = COPY_LABEL;
+        btn.classList.remove("copied");
+      }, COPY_FEEDBACK_MS);
     }
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -102,7 +110,7 @@
         await navigator.clipboard.writeText(text);
         show("복사됨", true);
         return;
-      } catch (e) { /* fall through */ }
+      } catch (err) { /* fall through */ }
     }
     try {
       var range = document.createRange();
@@ -113,7 +121,7 @@
       var ok = document.execCommand("copy");
       sel.removeAllRanges();
       show(ok ? "복사됨" : "Ctrl+C로 복사해 주세요", ok);
-    } catch (e) {
+    } catch (err) {
       show("Ctrl+C로 복사해 주세요", false);
     }
   });
