@@ -163,48 +163,85 @@ ${links}
   </div>`;
 }
 
-function renderNav(site, linkFn, activeTopicSlug, landingHref) {
+// 아이콘은 시안처럼 흑백 글리프로 보이게 U+FE0E(text presentation)를 붙인다 — 🔍 ⌛ 같은 이모지가 컬러로 뜨는 것 방지.
+function renderIcon(icon) {
+  return icon ? escapeHtml(icon) + "︎" : "";
+}
+
+const ICON_SEARCH =
+  '<svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>';
+const ICON_MENU =
+  '<svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>';
+const ICON_CLOSE =
+  '<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>';
+const ICON_CHEVRON_DOWN =
+  '<svg class="icon nav-group-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>';
+
+// 사이드바(토픽 페이지 ≥52em) 겸 드로어(좁은 폭 · 랜딩 전 폭). 브랜드는 헤더로 올라갔다.
+function renderNav(site, linkFn, activeTopicSlug) {
   const groups = (site.sections || [])
     .map((section) => {
+      const groupId = section.id || slugify(section.title, { maxLength: 40 });
+      const bodyId = `nav-group-${escapeHtml(groupId)}`;
       const buttons = (section.topics || [])
         .map((topic) => {
-          const activeClass = topic.slug === activeTopicSlug ? ' active' : '';
-          return `<a href="${linkFn(topic.slug)}" class="topic-btn${activeClass}" data-topic="${topic.slug}" title="${escapeHtml(topic.summary || "")}">
-  <span class="topic-btn-icon" aria-hidden="true">${topic.icon || ""}</span>
+          const isActive = topic.slug === activeTopicSlug;
+          return `<a href="${linkFn(topic.slug)}" class="topic-btn${isActive ? " active" : ""}" data-topic="${topic.slug}"${isActive ? ' aria-current="page"' : ""} title="${escapeHtml(topic.summary || "")}">
+  <span class="topic-btn-icon" aria-hidden="true">${renderIcon(topic.icon)}</span>
   <span class="topic-btn-label">${escapeHtml(topic.title)}</span>
 </a>`;
         })
         .join("");
-      const groupId = section.id || slugify(section.title, { maxLength: 40 });
       return `<div class="nav-group" data-group-id="${escapeHtml(groupId)}">
-  <p class="nav-group-label">${escapeHtml(section.title)}</p>
-  <div class="nav-group-btns">${buttons}</div>
+  <button type="button" class="nav-group-label" aria-expanded="true" aria-controls="${bodyId}"><span class="nav-group-title">${escapeHtml(section.title)}</span>${ICON_CHEVRON_DOWN}</button>
+  <div class="nav-group-btns" id="${bodyId}">${buttons}</div>
 </div>`;
     })
     .join("");
 
-  const referencesHtml = renderReferences(site.references);
+  return `<nav class="nav-panel" id="nav" aria-label="주제">
+  <div class="nav-drawer-head">
+    <span class="nav-drawer-title">주제</span>
+    <button type="button" class="icon-btn nav-close" id="nav-close" aria-label="메뉴 닫기">${ICON_CLOSE}</button>
+  </div>
+  <div class="nav-filter">
+    <label class="nav-filter-label" for="nav-filter-input">주제 필터</label>
+    <input type="search" class="nav-filter-input" id="nav-filter-input" placeholder="키워드로 거르기" autocomplete="off" spellcheck="false">
+  </div>
+  ${groups}
+  <p class="nav-filter-empty" id="nav-filter-empty" role="status" hidden>일치하는 주제가 없어요</p>
+</nav>`;
+}
 
+function renderBrand(site, landingHref) {
   const title = site.title || "Site";
   const brandSvg = validateSvg(site.brandMarkSvg, "site.json");
   const brandMarkInner = brandSvg
-    ? `${brandSvg}`  // 인라인 SVG — validateSvg 통과한 안전한 마크업
-    : escapeHtml((site.brandMark || title).slice(0, 2));  // 폴백: 텍스트
+    ? brandSvg // 인라인 SVG — validateSvg 통과한 안전한 마크업
+    : escapeHtml((site.brandMark || title).slice(0, 2)); // 폴백: 텍스트
+  return `<a class="brand-btn" href="${landingHref}">
+        <span class="brand-mark">${brandMarkInner}</span>
+        <span class="brand-text">${escapeHtml(title)}</span>
+      </a>`;
+}
 
-  const subtitleHtml = site.subtitle
-    ? `\n    <p class="brand-sub">${escapeHtml(site.subtitle)}</p>`
-    : "";
-
-  return `<nav class="nav-panel" id="nav" aria-label="주제">
-  <div class="nav-brand">
-    <a class="brand-btn" href="${landingHref}">
-      <span class="brand-mark">${brandMarkInner}</span>
-      <span class="brand-text">${escapeHtml(title)}</span>
-    </a>${subtitleHtml}
-  </div>
-  ${groups}
-${referencesHtml}
-</nav>`;
+function renderSiteHeader(site, landingHref, pageType) {
+  const tocToggle =
+    pageType === "topic"
+      ? `
+      <button type="button" class="toc-toggle" id="toc-toggle" aria-label="목차 열기" aria-controls="toc-panel" aria-expanded="false">목차 열기</button>`
+      : "";
+  return `<header class="site-header">
+    <div class="site-header-inner">
+      ${renderBrand(site, landingHref)}
+      <div class="site-header-actions">
+        <button type="button" class="search-trigger" id="search-trigger" aria-label="검색 열기 (Ctrl+K)">
+          ${ICON_SEARCH}<span class="search-trigger-label">주제 · 본문 검색</span><kbd class="search-trigger-kbd">Ctrl K</kbd>
+        </button>${tocToggle}
+        <button type="button" class="icon-btn nav-toggle" id="nav-toggle" aria-label="주제 메뉴 열기" aria-controls="nav" aria-expanded="false">${ICON_MENU}</button>
+      </div>
+    </div>
+  </header>`;
 }
 
 async function buildSiteData(args) {
@@ -351,7 +388,16 @@ function pageShell(opts) {
   } = opts;
   const storagePrefix = escapeHtml(site?.storagePrefix || "topic-pages");
   const landingHref = makeLandingHref(site?.baseUrl || "", pageType === "topic");
-  const nav = renderNav(site, linkToTopic, activeTopicSlug, landingHref);
+  const nav = renderNav(site, linkToTopic, activeTopicSlug);
+  const siteHeader = renderSiteHeader(site, landingHref, pageType);
+  const tocPanel = pageType === "topic"
+    ? `
+    <aside class="toc-panel" id="toc-panel" aria-label="이 페이지 목차"></aside>`
+    : "";
+  const tocBackdrop = pageType === "topic"
+    ? `
+    <div class="toc-backdrop" id="toc-backdrop" hidden></div>`
+    : "";
   const bodyFont = bodyFontOf(site);
   const fontsHref = GOOGLE_FONTS_BASE + (bodyFont === "sans" ? GOOGLE_FONTS_SANS : "") + "&display=swap";
 
@@ -406,24 +452,13 @@ ${themeStyle}
 <body ${bodyDataAttrs}>
   <a class="skip-link" href="#main">본문으로 건너뛰기</a>
   <a class="skip-link" href="#nav">주제 메뉴로 건너뛰기</a>
-  <div class="app" id="app">
-    <div class="nav-backdrop" id="nav-backdrop" hidden></div>
-    <div class="toc-backdrop" id="toc-backdrop" hidden></div>
+  ${siteHeader}
+  <div class="layout layout-${pageType}" id="app">
+    <div class="nav-backdrop" id="nav-backdrop" hidden></div>${tocBackdrop}
     ${nav}
     <main class="main-panel" id="main" tabindex="-1">
-      <header class="main-header">
-        <button type="button" class="icon-btn nav-toggle" id="nav-toggle" aria-label="주제 메뉴">☰</button>
-        <div class="main-header-text">
-          <p class="main-eyebrow" id="topic-eyebrow">${escapeHtml(topicTitle || site?.title || "")}</p>
-        </div>
-        <div class="main-header-actions">
-          <button type="button" class="icon-btn search-trigger" id="search-trigger" aria-label="검색 열기 (Ctrl+K)">🔍</button>
-          <button type="button" class="toc-toggle" id="toc-toggle" aria-label="목차 토글" aria-controls="toc-panel" aria-expanded="false"><span class="toc-toggle-icon" aria-hidden="true">☰</span><span class="toc-toggle-label">목차</span></button>
-        </div>
-      </header>
       ${bodyHtml}
-    </main>
-    <aside class="toc-panel" id="toc-panel" aria-label="이 페이지 목차"></aside>
+    </main>${tocPanel}
   </div>
 ${topicDataScript}  <div class="search-backdrop" id="search-backdrop" hidden></div>
   <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-labelledby="search-input-label" hidden>

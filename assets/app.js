@@ -16,17 +16,44 @@
   var viewportEl = document.getElementById("content-viewport");
   var navPanel = document.querySelector(".nav-panel");
   var navToggle = document.getElementById("nav-toggle");
+  var navClose = document.getElementById("nav-close");
   var navBackdrop = document.getElementById("nav-backdrop");
-  var eyebrowEl = document.getElementById("topic-eyebrow");
+  var tocToggleBtn = document.getElementById("toc-toggle");
+  var tocPanel = document.getElementById("toc-panel");
+  var tocBackdrop = document.getElementById("toc-backdrop");
 
-  function closeMobileNav() {
-    navPanel && navPanel.classList.remove("open");
+  /* ── 반응형 상태 ──
+     CSS 와 같은 em 기반 쿼리를 쓴다 — px 기준으로 판단하면 브라우저 확대(Ctrl+휠) 때 CSS 와 어긋난다.
+     랜딩은 사이드바가 없어 nav 가 전 폭에서 드로어. */
+  var mqNavDrawer = window.matchMedia("(width <= 52em)");
+  var mqTocDrawer = window.matchMedia("(width <= 75em)");
+  function navIsDrawer() { return pageType !== "topic" || mqNavDrawer.matches; }
+
+  /* 드로어/검색 모달이 열려 있는 동안 문서 스크롤을 잠근다. */
+  var searchOpenFlag = false;
+  function syncScrollLock() {
+    var drawerOpen = (navPanel && navPanel.classList.contains("open")) ||
+      (tocPanel && tocPanel.classList.contains("open"));
+    document.body.style.overflow = (drawerOpen || searchOpenFlag) ? "hidden" : "";
+  }
+
+  function closeMobileNav(restoreFocus) {
+    if (!navPanel || !navPanel.classList.contains("open")) return;
+    navPanel.classList.remove("open");
     navBackdrop && navBackdrop.setAttribute("hidden", "");
+    navToggle && navToggle.setAttribute("aria-expanded", "false");
+    syncScrollLock();
+    if (restoreFocus && navToggle) navToggle.focus();
   }
 
   function openMobileNav() {
-    navPanel && navPanel.classList.add("open");
+    if (!navPanel || !navIsDrawer()) return;
+    closeToc();
+    navPanel.classList.add("open");
     navBackdrop && navBackdrop.removeAttribute("hidden");
+    navToggle && navToggle.setAttribute("aria-expanded", "true");
+    syncScrollLock();
+    if (navClose) navClose.focus();
   }
 
   function highlightCode() {
@@ -144,37 +171,39 @@
     panel.appendChild(ul);
   }
 
-  /* ── TOC toggle ── */
-  var tocToggleBtn = document.getElementById("toc-toggle");
-  var tocPanel = document.getElementById("toc-panel");
-  var tocBackdrop = document.getElementById("toc-backdrop");
-
-  function closeToc() {
-    tocPanel && tocPanel.classList.remove("open");
+  /* ── TOC drawer (≤75em; 그 위에서는 오른쪽 열이 상시 보인다) ── */
+  function closeToc(restoreFocus) {
+    if (!tocPanel || !tocPanel.classList.contains("open")) return;
+    tocPanel.classList.remove("open");
     tocToggleBtn && tocToggleBtn.setAttribute("aria-expanded", "false");
     tocBackdrop && tocBackdrop.setAttribute("hidden", "");
+    syncScrollLock();
+    if (restoreFocus && tocToggleBtn) tocToggleBtn.focus();
+  }
+
+  function openToc() {
+    if (!tocPanel || !mqTocDrawer.matches) return;
+    closeMobileNav();
+    tocPanel.classList.add("open");
+    tocToggleBtn && tocToggleBtn.setAttribute("aria-expanded", "true");
+    tocBackdrop && tocBackdrop.removeAttribute("hidden");
+    syncScrollLock();
   }
 
   tocToggleBtn && tocToggleBtn.addEventListener("click", function () {
-    var expanded = tocToggleBtn.getAttribute("aria-expanded") === "true";
-    tocToggleBtn.setAttribute("aria-expanded", String(!expanded));
-    tocPanel && tocPanel.classList.toggle("open", !expanded);
-    if (expanded) {
-      tocBackdrop && tocBackdrop.setAttribute("hidden", "");
-    } else {
-      tocBackdrop && tocBackdrop.removeAttribute("hidden");
-    }
+    if (tocPanel && tocPanel.classList.contains("open")) closeToc(true);
+    else openToc();
   });
 
-  tocBackdrop && tocBackdrop.addEventListener("click", closeToc);
+  tocBackdrop && tocBackdrop.addEventListener("click", function () { closeToc(true); });
 
-  // TOC click handler: smooth scroll to section within the viewport scroll container.
-  // Manual scroll calculation instead of scrollIntoView — scrollIntoView walks the
-  // whole ancestor chain and can shove the viewport itself up under the header.
+  // TOC 클릭: 문서(window) 스크롤로 해당 요소 위치까지 부드럽게 이동.
+  var SCROLL_OFFSET_REM = 1;
   function scrollToWithin(el) {
-    if (!el || !viewportEl) return;
-    var top = el.getBoundingClientRect().top - viewportEl.getBoundingClientRect().top + viewportEl.scrollTop - 80;
-    viewportEl.scrollTo({ top: top, behavior: "smooth" });
+    if (!el) return;
+    var offset = SCROLL_OFFSET_REM * parseFloat(getComputedStyle(document.documentElement).fontSize);
+    var top = el.getBoundingClientRect().top + window.pageYOffset - offset;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   }
 
   tocPanel && tocPanel.addEventListener("click", function (e) {
@@ -184,6 +213,7 @@
     var idx = parseInt(a.dataset.sectionIdx, 10);
     var sec = tocSections && tocSections[idx];
     if (!sec) return;
+    closeToc();
     var targetId = topicSlug + "-" + sec.id;
     var el = document.getElementById(targetId);
     if (el) scrollToWithin(el);
@@ -417,10 +447,15 @@
 
   /* ── Nav toggle ── */
   navToggle && navToggle.addEventListener("click", function () {
-    if (navPanel && navPanel.classList.contains("open")) closeMobileNav();
+    if (navPanel && navPanel.classList.contains("open")) closeMobileNav(true);
     else openMobileNav();
   });
-  navBackdrop && navBackdrop.addEventListener("click", closeMobileNav);
+  navClose && navClose.addEventListener("click", function () { closeMobileNav(true); });
+  navBackdrop && navBackdrop.addEventListener("click", function () { closeMobileNav(true); });
+  // 드로어 안에서 링크를 눌러 이동하면 닫는다(같은 문서 내 이동은 아니므로 사실상 페이지 전환).
+  navPanel && navPanel.addEventListener("click", function (e) {
+    if (e.target.closest("a.topic-btn")) closeMobileNav();
+  });
 
   /* ── Sidebar nav group collapse ── */
   var navGroupsEl = document.querySelectorAll(".nav-group");
@@ -438,6 +473,8 @@
     navGroupsEl.forEach(function (g, i) {
       var id = g.dataset.groupId || String(i);
       g.classList.toggle("collapsed", collapsed.has(id));
+      var label = g.querySelector(".nav-group-label");
+      if (label) label.setAttribute("aria-expanded", String(!collapsed.has(id)));
     });
   }
   applyCollapsed();
@@ -475,6 +512,49 @@
       applyCollapsed();
     });
   });
+
+  /* ── 주제 필터 ──
+     공백으로 나눈 모든 단어가 (주제 이름 + 요약) 에 부분 일치해야 보인다(대소문자 무시).
+     매치가 없는 그룹은 숨기고, 필터 중에는 접힌 그룹도 펼쳐서 보여 준다(CSS .is-filtering). */
+  var filterInput = document.getElementById("nav-filter-input");
+  var filterEmpty = document.getElementById("nav-filter-empty");
+
+  function applyFilter() {
+    if (!navPanel || !filterInput) return;
+    var words = filterInput.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    navPanel.classList.toggle("is-filtering", words.length > 0);
+    var anyVisible = false;
+    navGroupsEl.forEach(function (g) {
+      var visibleInGroup = 0;
+      g.querySelectorAll(".topic-btn").forEach(function (btn) {
+        var labelEl = btn.querySelector(".topic-btn-label");
+        var hay = ((labelEl ? labelEl.textContent : "") + " " + (btn.getAttribute("title") || "")).toLowerCase();
+        var match = words.every(function (w) { return hay.indexOf(w) !== -1; });
+        btn.hidden = !match;
+        if (match) visibleInGroup++;
+      });
+      g.hidden = visibleInGroup === 0;
+      if (visibleInGroup > 0) anyVisible = true;
+    });
+    if (filterEmpty) filterEmpty.hidden = anyVisible || words.length === 0;
+  }
+
+  if (filterInput) {
+    filterInput.addEventListener("input", function () {
+      applyFilter();
+      navPanel.scrollTop = 0;
+    });
+    filterInput.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      if (filterInput.value) {
+        filterInput.value = "";
+        applyFilter();
+      } else {
+        filterInput.blur();
+      }
+    });
+  }
 
   /* ── Boot: topic page ── */
   if (pageType === "topic" && topicSlug) {
@@ -541,20 +621,20 @@
     function attempt() {
       tries++;
       // 일부러 여유를 둬서 대략 그 위치 근처까지 콘텐츠가 펼쳐졌는지 확인
-      if (viewportEl.scrollHeight < top + 1 && tries < MAX_TRIES) {
+      if (document.documentElement.scrollHeight < top + window.innerHeight && tries < MAX_TRIES) {
         requestAnimationFrame(attempt);
         return;
       }
-      viewportEl.scrollTo({ top: top });
+      window.scrollTo({ top: top });
     }
     requestAnimationFrame(attempt);
   }
 
   if (viewportEl && pageType === "topic" && topicSlug) {
-    viewportEl.addEventListener("scroll", function () {
+    window.addEventListener("scroll", function () {
       if (scrollSaveTimer) clearTimeout(scrollSaveTimer);
       scrollSaveTimer = setTimeout(function () {
-        saveTopicScroll(topicSlug, viewportEl.scrollTop);
+        saveTopicScroll(topicSlug, window.pageYOffset);
       }, SCROLL_DEBOUNCE_MS);
     }, { passive: true });
     // 페이지를 떠나기 직전 마지막 위치 저장 (디바운스 미처 저장 못한 경우 대비)
@@ -563,7 +643,7 @@
         clearTimeout(scrollSaveTimer);
         scrollSaveTimer = null;
       }
-      saveTopicScroll(topicSlug, viewportEl.scrollTop);
+      saveTopicScroll(topicSlug, window.pageYOffset);
     });
   }
 
@@ -588,7 +668,8 @@
     if (!searchModal || !searchBackdrop) return;
     searchModal.removeAttribute("hidden");
     searchBackdrop.removeAttribute("hidden");
-    document.body.style.overflow = "hidden";
+    searchOpenFlag = true;
+    syncScrollLock();
     searchActiveIdx = -1;
     searchLastQuery = "";
     searchResults.innerHTML = '<li class="search-empty">키워드를 입력하세요</li>';
@@ -601,7 +682,8 @@
     if (!searchModal || !searchBackdrop) return;
     searchModal.setAttribute("hidden", "");
     searchBackdrop.setAttribute("hidden", "");
-    document.body.style.overflow = "";
+    searchOpenFlag = false;
+    syncScrollLock();
     if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
   }
 
@@ -846,18 +928,21 @@
 
   /* ── Escape key (global) ── */
   document.addEventListener("keydown", function (e) {
-    if (e.target.matches("input, textarea, select")) return;
-    if (e.key === "Escape") {
-      e.preventDefault();
-      closeMobileNav();
-      closeToc();
-    }
+    if (e.key !== "Escape") return;
+    if (e.target.matches && e.target.matches("input, textarea, select")) return;
+    if (!(navPanel && navPanel.classList.contains("open")) && !(tocPanel && tocPanel.classList.contains("open"))) return;
+    e.preventDefault();
+    closeMobileNav(true);
+    closeToc(true);
   });
 
-  /* ── Resize handler ── */
-  window.addEventListener("resize", function () {
-    if (window.innerWidth > 800) closeMobileNav();
-    if (window.innerWidth >= 1200) closeToc();
+  /* ── 폭 변화(창 크기 · 브라우저 확대) ──
+     드로어 구간을 벗어나면 열린 드로어를 닫아 잠긴 스크롤·남은 백드롭이 없게 한다. */
+  function onNavBreakpoint() { if (!navIsDrawer()) closeMobileNav(); }
+  function onTocBreakpoint() { if (!mqTocDrawer.matches) closeToc(); }
+  [[mqNavDrawer, onNavBreakpoint], [mqTocDrawer, onTocBreakpoint]].forEach(function (pair) {
+    if (pair[0].addEventListener) pair[0].addEventListener("change", pair[1]);
+    else pair[0].addListener(pair[1]);
   });
 
   /* ── Lazy prefetch search index on boot (idle) ── */
