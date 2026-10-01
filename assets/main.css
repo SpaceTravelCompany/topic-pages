@@ -730,48 +730,51 @@ body[data-page-type="topic"] .site-header-inner {
     display: none;
   }
   .floating-toc-btn {
-    display: none;
+    display: none !important;
   }
 }
 
-/* ── Floating TOC toggle (5시 고정, ≤75em) ── */
+/* ── Floating TOC toggle (기본 숨김, ≤75em 중간·모바일 화면 5시 고정) ── */
 .floating-toc-btn {
-  position: fixed;
-  right: 1.5rem;
-  bottom: 1.5rem;
-  z-index: 45;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  height: 2.625rem;
-  padding: 0 1rem;
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--paper);
-  color: var(--fg);
-  box-shadow: var(--shadow-offset-sm);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  cursor: pointer;
-  touch-action: manipulation;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
-}
-.floating-toc-btn:hover {
-  background: var(--surface);
-  transform: translate(-1px, 1px);
-  box-shadow: -1px 1px 0 var(--line);
-}
-.floating-toc-btn:active {
-  transform: translate(-2px, 2px);
-  box-shadow: none;
-}
-.floating-toc-btn:focus-visible {
-  outline: 2px solid var(--fg);
-  outline-offset: 2px;
-}
-.floating-toc-btn[hidden] {
   display: none;
+}
+
+@media (width <= 75em) {
+  .floating-toc-btn {
+    position: fixed;
+    right: 1.5rem;
+    bottom: 1.5rem;
+    z-index: 45;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 2.625rem;
+    padding: 0 1rem;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--fg);
+    box-shadow: var(--shadow-offset-sm);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+  }
+  .floating-toc-btn:hover {
+    background: var(--surface);
+    transform: translate(-1px, 1px);
+    box-shadow: -1px 1px 0 var(--line);
+  }
+  .floating-toc-btn:active {
+    transform: translate(-2px, 2px);
+    box-shadow: none;
+  }
+  .floating-toc-btn:focus-visible {
+    outline: 2px solid var(--fg);
+    outline-offset: 2px;
+  }
 }
 
 @media (width <= 52em) {
@@ -779,6 +782,10 @@ body[data-page-type="topic"] .site-header-inner {
     right: 1rem;
     bottom: 1rem;
   }
+}
+
+.floating-toc-btn[hidden] {
+  display: none !important;
 }
 
 /* 인라인 접이식 (제거됨 - 하위 호환 숨김) */
