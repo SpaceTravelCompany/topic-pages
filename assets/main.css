@@ -627,7 +627,7 @@ body[data-page-type="topic"] .site-header-inner {
 .toc-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
 }
 .toc-title {
   padding-top: 0.125rem;
@@ -727,6 +727,9 @@ body[data-page-type="topic"] .site-header-inner {
     transition: none;
   }
   .toc-close {
+    display: none;
+  }
+  .toc-head {
     display: none;
   }
   .floating-toc-btn {

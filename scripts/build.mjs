@@ -394,9 +394,8 @@ function pageShell(opts) {
   const siteFooter = renderFooter(site);
   const tocPanel = pageType === "topic"
     ? `
-    <aside class="toc-panel" id="toc-panel" aria-label="이 페이지 목차">
+    <aside class="toc-panel" id="toc-panel" aria-label="목차">
       <div class="toc-head">
-        <span class="toc-title">이 페이지</span>
         <button type="button" class="icon-btn toc-close" id="toc-close" aria-label="목차 닫기">${ICON_CLOSE}</button>
       </div>
       <div class="toc-list" data-toc-list></div>
