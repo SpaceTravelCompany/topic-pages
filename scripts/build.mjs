@@ -27,24 +27,15 @@ import { buildSearchIndex } from "../lib/search-index.js";
  *     "brandMark": "Tp",                       // nav 좌측 마크 (선택, 기본: title 앞 2글자)
  *     "brandMarkSvg": "<svg ...>...</svg>",    // 인라인 SVG 브랜드 마크 (선택, brandMark보다 우선, XSS 필터 통과 시만 적용)
  *     "storagePrefix": "my-ref",               // localStorage 네임스페이스 (선택, 기본: "topic-pages")
- *     "theme": {                                // CSS 변수 주입 (선택). light/dark 분리.
- *       "light": {                               // html[data-theme="light"] 에 주입 (선택)
- *         "brand": "#7c3aed",                    // → --brand
- *         "primary": "#1a1a1a",                  // → --primary
- *         "primaryFg": "#fafafa",                 // → --primary-fg (카멜케이스 → --primary-fg)
- *         "accent": "#7c3aed",                    // → --accent. 정적 색으로 덮어쓰기.
- *                                                 //   --accent-dim/glow 도 color-mix 로 재계산 (light: 90%/75%)
- *         "link": "#0969da"                       // → --link
- *       },
- *       "dark": {                                // html[data-theme="dark"] 에 주입 (선택)
- *         "brand": "#a371f7",                     // → --brand
- *         "primary": "#e5e5e5",                   // → --primary
- *         "primaryFg": "#1a1a1a",                 // → --primary-fg
- *         "accent": "#a371f7",                     // → --accent. --accent-dim/glow 재계산 (dark: 85%/65%)
- *         "link": "#79c0ff"                        // → --link
- *       }
+ *     "bodyFont": "mono",                      // 본문 폰트 (선택): "mono"(기본, DM Mono + Nanum Gothic Coding) | "sans"(IBM Plex Sans KR)
+ *     "theme": {                                // CSS 변수 주입 (선택). 라이트 모드 전용.
+ *       "accent": "#63C8C1",                     // → --accent. 브랜드 마크·활성 항목·칩·강조 배경. 기본 #63C8C1.
+ *                                                 //   --accent-dark/--accent-soft 는 CSS 가 color-mix 로 파생,
+ *                                                 //   --accent-fg(accent 위 글자색)는 hex 일 때 명암 대비로 자동 선택.
+ *       "link": "#005CC5"                        // → --link. 본문 링크색 (선택)
  *     },
- *     // theme 전체, light, dark 각각 선택. 각 키도 선택 — 생략 시 main.css 기본값 사용.
+ *     // 레거시 호환: theme.light.accent / theme.light.brand → accent, theme.light.link → link.
+ *     // theme.dark 는 무시한다(다크 모드 제거됨 — warn 출력).
  *     // 값은 CSS 색 문자열만 허용: #hex, rgb()/oklch()/oklab()/hsl() 함수, var(--x), named color.
  *     // 그 외 문자열은 warn 후 무시 (XSS 방지).
  *     "references": [
@@ -244,16 +235,6 @@ async function buildSiteData(args) {
   return { site, topics };
 }
 
-// site.json theme 키 → CSS 변수명 매핑.
-// brand/primary/primaryFg/accent/link 지원. 각 키 선택적.
-const THEME_KEY_MAP = {
-  brand: "--brand",
-  primary: "--primary",
-  primaryFg: "--primary-fg",
-  accent: "--accent",
-  link: "--link",
-};
-
 // CSS 색 값으로 허용하는 패턴. XSS 방지 — 색이 아닌 문자열 거부.
 //  #7c3aed / 7c3aed       — hex (3,4,6,8 자리)
 //  oklch(...) / oklab(...) — CSS 색 함수
@@ -262,9 +243,9 @@ const THEME_KEY_MAP = {
 //  named color (red, blue) — 기본 CSS 색 키워드
 const COLOR_RE = /^(#[0-9a-fA-F]{3,8}|oklab\([^;{}]*\)|oklch\([^;{}]*\)|rgba?\([^;{}]*\)|hsla?\([^;{}]*\)|var\(--[a-zA-Z0-9-]+\)|[a-zA-Z]+)$/;
 
-function validateColor(value, key, scope) {
+function validateColor(value, key) {
   if (typeof value !== "string" || !COLOR_RE.test(value.trim())) {
-    console.warn(`  warn: theme.${scope}.${key} 값이 CSS 색으로 보이지 않아 무시합니다: ${JSON.stringify(value)}`);
+    console.warn(`  warn: theme.${key} 값이 CSS 색으로 보이지 않아 무시합니다: ${JSON.stringify(value)}`);
     return null;
   }
   return value.trim();
@@ -311,66 +292,68 @@ function validateSvg(svg, source) {
   return trimmed;
 }
 
-// theme 객체에서 CSS 변수 선언 문자열 생성.
-// accent가 주어지면 --accent-dim/--accent-glow도 color-mix로 재계산.
-// dimPct/glowPct: main.css의 light(90%/75%)와 dark(85%/65%) 비율 참조.
-function renderScopeDecls(scopeMap, dimPct, glowPct) {
-  const decls = [];
-  for (const [jsonKey, cssVar] of Object.entries(THEME_KEY_MAP)) {
-    const v = scopeMap[jsonKey];
-    if (v == null || v === "") continue;
-    const safe = validateColor(v, jsonKey, scopeMap._scope);
-    if (!safe) continue;
-    decls.push(`  ${cssVar}: ${safe};`);
-    if (jsonKey === "accent") {
-      decls.push(`  --accent-dim: color-mix(in srgb, ${safe}, transparent ${dimPct}%);`);
-      decls.push(`  --accent-glow: color-mix(in srgb, ${safe}, transparent ${glowPct}%);`);
-    }
-  }
-  return decls;
+// hex(#rgb/#rrggbb) 색 위에 올릴 글자색(#000/#fff)을 WCAG 상대 휘도로 고른다.
+// hex 가 아니면(rgb()/oklch()/var() 등) null — CSS 기본 --accent-fg(#000)를 그대로 쓴다.
+function readableTextOn(color) {
+  const m = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(color);
+  if (!m) return null;
+  const hex = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
+  const lin = [0, 2, 4].map((i) => {
+    const v = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  // 흰 글자 대비 (1.05 / (L + 0.05)) 가 검정 글자 대비 ((L + 0.05) / 0.05) 보다 크면 흰색.
+  return 1.05 / (luminance + 0.05) > (luminance + 0.05) / 0.05 ? "#fff" : "#000";
 }
 
-// site.theme를 <style> 블록으로 렌더. null/빈이면 빈 문자열.
-// light/dark 분리 — 각각 main.css 대응 selector에 매칭:
-//   light: html[data-theme="light"] (명시도 0,1,1 — main.css :root 0,0,1보다 높아 무조건 승)
-//   dark:  html[data-theme="dark"]  (main.css와 동일 0,1,1 → 소스 순서로 승, 주입이 뒤에 옴)
-// accent 파생 비율: light 90%/75%, dark 85%/65% (main.css 참조).
+// site.theme 를 :root 변수 <style> 블록으로 렌더. 라이트 전용.
+// 신규: theme.accent / theme.link. 레거시: theme.light.{accent,brand,link} 도 읽는다. theme.dark 는 무시(warn).
+// --accent-dark/--accent-soft 는 main.css 가 --accent 로부터 파생하므로 여기서 만들지 않는다.
 function renderThemeStyle(theme) {
-  if (!theme || (typeof theme !== "object")) return "";
-  const light = theme.light || {};
-  const dark = theme.dark || {};
-  light._scope = "light";
-  dark._scope = "dark";
+  if (!theme || typeof theme !== "object") return "";
+  if (theme.dark) console.warn("  warn: theme.dark 는 무시됩니다 — 라이트 모드만 지원합니다.");
 
-  const lightDecls = renderScopeDecls(light, 90, 75);
-  const darkDecls = renderScopeDecls(dark, 85, 65);
+  const legacy = theme.light && typeof theme.light === "object" ? theme.light : {};
+  const pick = (value, key) => (value == null || value === "" ? null : validateColor(value, key));
+  const accent = pick(theme.accent ?? legacy.accent ?? legacy.brand, "accent");
+  const link = pick(theme.link ?? legacy.link, "link");
 
-  if (lightDecls.length === 0 && darkDecls.length === 0) return "";
-
-  const blocks = [];
-  if (lightDecls.length) {
-    blocks.push(`html[data-theme="light"] {\n${lightDecls.join("\n")}\n}`);
+  const decls = [];
+  if (accent) {
+    decls.push(`  --accent: ${accent};`);
+    const fg = readableTextOn(accent);
+    if (fg) decls.push(`  --accent-fg: ${fg};`);
   }
-  if (darkDecls.length) {
-    blocks.push(`html[data-theme="dark"] {\n${darkDecls.join("\n")}\n}`);
-  }
-  if (blocks.length === 0) return "";
+  if (link) decls.push(`  --link: ${link};`);
+  if (decls.length === 0) return "";
 
   return `  <style data-theme-override>
-${blocks.join("\n\n")}
+:root {
+${decls.join("\n")}
+}
   </style>`;
+}
+
+const GOOGLE_FONTS_BASE =
+  "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Do+Hyeon&family=Nanum+Gothic+Coding:wght@400;700";
+const GOOGLE_FONTS_SANS = "&family=IBM+Plex+Sans+KR:wght@400;600";
+
+function bodyFontOf(site) {
+  return site?.bodyFont === "sans" ? "sans" : "mono";
 }
 
 function pageShell(opts) {
   const {
     site, title, description, canonicalUrl, bodyHtml,
     pageType, activeTopicSlug, topicTitle, asset, linkToTopic,
-    topicDataJson, hasCustomCss, hasCustomJs,
+    topicDataJson, hasCustomCss, hasCustomJs, themeStyle,
   } = opts;
   const storagePrefix = escapeHtml(site?.storagePrefix || "topic-pages");
   const landingHref = makeLandingHref(site?.baseUrl || "", pageType === "topic");
   const nav = renderNav(site, linkToTopic, activeTopicSlug, landingHref);
-  const themeStyle = renderThemeStyle(site?.theme);
+  const bodyFont = bodyFontOf(site);
+  const fontsHref = GOOGLE_FONTS_BASE + (bodyFont === "sans" ? GOOGLE_FONTS_SANS : "") + "&display=swap";
 
   const customCssLink = hasCustomCss
     ? `\n  <link rel="stylesheet" href="${asset("assets/custom.css")}">`
@@ -395,33 +378,26 @@ function pageShell(opts) {
   const searchIndexUrl = baseUrlVal
     ? baseUrlVal.replace(/\/+$/, "") + "/search-index.json"
     : pageType === "topic" ? "../search-index.json" : "search-index.json";
-  const bodyDataAttrs = `data-page-type="${pageType}"` +
+  const bodyDataAttrs = `data-page-type="${pageType}" data-body-font="${bodyFont}"` +
     (activeTopicSlug ? ` data-topic-slug="${escapeHtml(activeTopicSlug)}"` : "") +
     (baseUrlVal ? ` data-base-url="${escapeHtml(baseUrlVal)}"` : "") +
     ` data-storage-prefix="${storagePrefix}"` +
     ` data-search-index-url="${escapeHtml(searchIndexUrl)}"`;
 
   return `<!DOCTYPE html>
-<html lang="ko" data-theme="dark">
+<html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
   <title>${escapeHtml(title)}</title>
 ${descMeta}
 ${canonicalTag}
 ${ogMeta}
   <link rel="icon" type="image/svg+xml" href="${asset("assets/favicon.svg")}">
-  <script>
-    (function () {
-      var key = "${storagePrefix}-theme";
-      var saved = localStorage.getItem(key);
-      var theme = saved;
-      if (!theme) {
-        theme = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-      }
-      document.documentElement.dataset.theme = theme;
-    })();
-  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="${fontsHref}">
   <link rel="stylesheet" href="${asset("assets/main.css")}">
 ${themeStyle}
   <link rel="stylesheet" href="${asset("assets/prism.css")}">
@@ -442,16 +418,6 @@ ${themeStyle}
         </div>
         <div class="main-header-actions">
           <button type="button" class="icon-btn search-trigger" id="search-trigger" aria-label="검색 열기 (Ctrl+K)">🔍</button>
-          <button type="button" class="icon-btn reader-toggle" id="reader-toggle" aria-label="글자 크기 토글">A</button>
-          <button type="button" class="icon-btn theme-toggle" id="theme-toggle" aria-label="테마 전환">
-            <svg class="theme-icon-dark" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
-            </svg>
-            <svg class="theme-icon-light" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="4"/>
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-            </svg>
-          </button>
           <button type="button" class="toc-toggle" id="toc-toggle" aria-label="목차 토글" aria-controls="toc-panel" aria-expanded="false"><span class="toc-toggle-icon" aria-hidden="true">☰</span><span class="toc-toggle-label">목차</span></button>
         </div>
       </header>
@@ -566,6 +532,7 @@ ${landingHtml}
     asset,
     linkToTopic,
     topicDataJson: null,
+    themeStyle: siteData.themeStyle,
     hasCustomCss: customAssets?.hasCustomCss ?? false,
     hasCustomJs: customAssets?.hasCustomJs ?? false,
   });
@@ -623,6 +590,7 @@ ${topicHtml}
     asset,
     linkToTopic,
     topicDataJson,
+    themeStyle: siteData.themeStyle,
     hasCustomCss: customAssets?.hasCustomCss ?? false,
     hasCustomJs: customAssets?.hasCustomJs ?? false,
   });
@@ -707,6 +675,7 @@ async function main() {
   const siteData = await buildSiteData(args);
   // Merge baseUrl from CLI arg > site.json > ""
   siteData.site.baseUrl = args.baseUrl || siteData.site.baseUrl || "";
+  siteData.themeStyle = renderThemeStyle(siteData.site.theme);
 
   const searchIndex = buildSearchIndex(siteData);
   console.log(`  search index: ${searchIndex.records.length} records`);

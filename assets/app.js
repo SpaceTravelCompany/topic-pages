@@ -19,23 +19,6 @@
   var navBackdrop = document.getElementById("nav-backdrop");
   var eyebrowEl = document.getElementById("topic-eyebrow");
 
-  var THEME_KEY = STORAGE_PREFIX + "-theme";
-  var themeToggleBtn = document.getElementById("theme-toggle");
-
-  /* ── Theme ── */
-  function getTheme() {
-    return document.documentElement.dataset.theme === "light" ? "light" : "dark";
-  }
-
-  function setTheme(theme) {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem(THEME_KEY, theme);
-    themeToggleBtn && themeToggleBtn.setAttribute(
-      "aria-label",
-      theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환",
-    );
-  }
-
   function closeMobileNav() {
     navPanel && navPanel.classList.remove("open");
     navBackdrop && navBackdrop.setAttribute("hidden", "");
@@ -300,40 +283,6 @@
       saveNavScroll(navPanel.scrollTop);
     });
   }
-
-  /* ── Theme toggle ── */
-  themeToggleBtn && themeToggleBtn.addEventListener("click", function () {
-    setTheme(getTheme() === "dark" ? "light" : "dark");
-    if (viewportEl) {
-      viewportEl.querySelectorAll("pre code[data-highlighted]").forEach(function (el) {
-        el.removeAttribute("data-highlighted");
-      });
-    }
-    highlightCode();
-  });
-  setTheme(getTheme());
-
-  /* ── Reader mode (font size toggle) ── */
-  var READER_KEY = STORAGE_PREFIX + "-reader-size";
-  var SIZES = ["sm", "base", "lg"];
-  function getReaderSize() {
-    var v = localStorage.getItem(READER_KEY);
-    return SIZES.indexOf(v) !== -1 ? v : "base";
-  }
-  function applyReaderSize(v) {
-    if (viewportEl) viewportEl.setAttribute("data-reader-size", v);
-    var landing = document.getElementById("content-viewport-landing");
-    if (landing) landing.setAttribute("data-reader-size", v);
-    localStorage.setItem(READER_KEY, v);
-  }
-  var readerToggleBtn = document.getElementById("reader-toggle");
-  readerToggleBtn && readerToggleBtn.addEventListener("click", function () {
-    var i = SIZES.indexOf(getReaderSize());
-    applyReaderSize(SIZES[(i + 1) % SIZES.length]);
-    // 글자 크기가 바뀌면 노드 기하가 달라지므로 SVG 간선 다시 그리기.
-    if (flowchartRedrawAll) flowchartRedrawAll();
-  });
-  applyReaderSize(getReaderSize());
 
   /* ── Flowchart true edges (SVG overlay) ──
      빌드 시 렌더러(lib/flowchart.js)는 레벨별 노드 행 + 폴백 화살표 행
