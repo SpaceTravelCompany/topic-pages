@@ -949,6 +949,13 @@ body[data-page-type="topic"] .site-header-inner {
   overflow-wrap: anywhere;
 }
 
+/* ── KaTeX 블록 수식: 폭이 모자라면 수식만 가로 스크롤 (페이지 가로 스크롤 방지) ── */
+.prose .katex-display {
+  padding: 0.2em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
 /* ── Table ── */
 .prose-table-wrap {
   margin: 1.5em 0;
