@@ -180,6 +180,8 @@ const ICON_CHEVRON_RIGHT =
   '<svg class="icon topic-card-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>';
 const ICON_CHEVRON_DOWN =
   '<svg class="icon nav-group-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>';
+const ICON_TOC =
+  '<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>';
 
 // 사이드바(토픽 페이지 ≥52em) 겸 드로어(좁은 폭 · 랜딩 전 폭). 브랜드는 헤더로 올라갔다.
 function renderNav(site, linkFn, activeTopicSlug) {
@@ -230,18 +232,13 @@ function renderBrand(site, landingHref) {
 }
 
 function renderSiteHeader(site, landingHref, pageType) {
-  const tocToggle =
-    pageType === "topic"
-      ? `
-      <button type="button" class="toc-toggle" id="toc-toggle" aria-label="목차 열기" aria-controls="toc-panel" aria-expanded="false">목차 열기</button>`
-      : "";
   return `<header class="site-header">
     <div class="site-header-inner">
       ${renderBrand(site, landingHref)}
       <div class="site-header-actions">
         <button type="button" class="search-trigger" id="search-trigger" aria-label="검색 열기 (Ctrl+K)">
           ${ICON_SEARCH}<span class="search-trigger-label">주제 · 본문 검색</span><kbd class="search-trigger-kbd">Ctrl K</kbd>
-        </button>${tocToggle}
+        </button>
         <button type="button" class="icon-btn nav-toggle" id="nav-toggle" aria-label="주제 메뉴 열기" aria-controls="nav" aria-expanded="false">${ICON_MENU}</button>
       </div>
     </div>
@@ -410,6 +407,12 @@ function pageShell(opts) {
     ? `
     <div class="toc-backdrop" id="toc-backdrop" hidden></div>`
     : "";
+  const floatingTocBtn = pageType === "topic"
+    ? `
+    <button type="button" class="floating-toc-btn" id="floating-toc-btn" aria-label="목차 열기" aria-controls="toc-panel" aria-expanded="false">
+      ${ICON_TOC}<span>목차 열기</span>
+    </button>`
+    : "";
   const bodyFont = bodyFontOf(site);
   const fontsHref = GOOGLE_FONTS_BASE + (bodyFont === "sans" ? GOOGLE_FONTS_SANS : "") + "&display=swap";
 
@@ -471,7 +474,7 @@ ${themeStyle}
     <main class="main-panel" id="main" tabindex="-1">
       ${bodyHtml}
     </main>${tocPanel}
-  </div>
+  </div>${floatingTocBtn}
   ${siteFooter}
 ${topicDataScript}  <div class="search-backdrop" id="search-backdrop" hidden></div>
   <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-labelledby="search-input-label" hidden>
@@ -667,10 +670,6 @@ function renderTopicPage(siteData, slug, topic, customAssets) {
         ${breadcrumbHtml}
         <h1 class="article-title">${titleLines.join("<br>")}</h1>${summaryHtml}
       </header>
-      <details class="toc-inline" id="toc-inline">
-        <summary>이 페이지 목차</summary>
-        <div class="toc-list" data-toc-list></div>
-      </details>
       <div class="content-viewport prose" id="content-viewport">
 ${sectionsHtml}
       </div>${renderPager(prev, next, linkToTopic)}

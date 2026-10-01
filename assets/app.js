@@ -23,7 +23,7 @@
   var navToggle = document.getElementById("nav-toggle");
   var navClose = document.getElementById("nav-close");
   var navBackdrop = document.getElementById("nav-backdrop");
-  var tocToggleBtn = document.getElementById("toc-toggle");
+  var tocToggleBtn = document.getElementById("floating-toc-btn") || document.getElementById("toc-toggle");
   var tocPanel = document.getElementById("toc-panel");
   var tocBackdrop = document.getElementById("toc-backdrop");
 
@@ -183,6 +183,7 @@
     });
     var inline = document.getElementById("toc-inline");
     if (inline) inline.hidden = tocEntries.length === 0;
+    if (tocToggleBtn) tocToggleBtn.hidden = tocEntries.length === 0;
     if (tocPanel) tocPanel.classList.toggle("is-empty", tocEntries.length === 0);
     updateScrollSpy();
   }
