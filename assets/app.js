@@ -14,7 +14,6 @@
   }
 
   var pageType = document.body.dataset.pageType || "landing";
-  var baseUrl = document.body.dataset.baseUrl || "";
   var topicSlug = document.body.dataset.topicSlug || "";
   var STORAGE_PREFIX = document.body.dataset.storagePrefix || "topic-pages";
   var searchIndexUrl = document.body.dataset.searchIndexUrl || "search-index.json";
@@ -929,7 +928,9 @@
 
   function navigateToResult(targetSlug, sectionId) {
     closeSearchModal();
-    var url = (baseUrl || "") + "topics/" + encodeURIComponent(targetSlug) + ".html";
+    // search-index.json 은 사이트 루트에 있다 — 같은 접두(절대 baseUrl / ../ / 빈 문자열)로 토픽 URL 을 만든다.
+    var siteRoot = searchIndexUrl.replace(/search-index\.json$/, "");
+    var url = siteRoot + "topics/" + encodeURIComponent(targetSlug) + ".html";
     if (sectionId) url += "#" + targetSlug + "-" + sectionId;
     location.href = url;
   }

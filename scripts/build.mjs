@@ -23,8 +23,8 @@ import { buildSearchIndex } from "../lib/search-index.js";
  * site.json 스키마:
  *   {
  *     "title": "사이트 이름",
- *     "subtitle": "부제목 (선택, 없으면 nav·랜딩에 렌더하지 않음)",
- *     "brandMark": "Tp",                       // nav 좌측 마크 (선택, 기본: title 앞 2글자)
+ *     "subtitle": "부제목 (선택, 없으면 랜딩 제목 아래에 렌더하지 않음)",
+ *     "brandMark": "Tp",                       // 헤더 좌측 마크 (선택, 기본: title 앞 2글자)
  *     "brandMarkSvg": "<svg ...>...</svg>",    // 인라인 SVG 브랜드 마크 (선택, brandMark보다 우선, XSS 필터 통과 시만 적용)
  *     "storagePrefix": "my-ref",               // localStorage 네임스페이스 (선택, 기본: "topic-pages")
  *     "bodyFont": "mono",                      // 본문 폰트 (선택): "mono"(기본, DM Mono + Nanum Gothic Coding) | "sans"(IBM Plex Sans KR)

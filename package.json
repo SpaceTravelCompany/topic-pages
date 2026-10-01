@@ -1,7 +1,7 @@
 {
   "name": "topic-pages",
   "version": "1.0.0",
-  "description": "주제별 정적 문서 사이트 빌더. site.json + content/*.md → 단일 HTML SPA.",
+  "description": "주제별 정적 문서 사이트 빌더. site.json + content/*.md → 정적 멀티페이지 문서 사이트.",
   "license": "MIT",
   "type": "module",
   "main": "scripts/build.mjs",

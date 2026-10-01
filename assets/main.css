@@ -29,7 +29,6 @@
   --danger: #dc2626;
   --success: #16a34a;
   --warning: #f4d35e;
-  --info: #2563eb;
 
   /* Fonts */
   --font-display: "Bebas Neue", "Do Hyeon", sans-serif;
@@ -52,8 +51,10 @@
   --text-base: 0.9375rem;
   --text-lg: 1.125rem;
 
+  /* Scrollbar */
+  --scrollbar-thumb: color-mix(in srgb, var(--muted), transparent 55%);
+
   /* Layout */
-  --header-h: 4rem;
   --sidebar-w: 17.5rem;
   --toc-w: 15rem;
 
@@ -64,45 +65,9 @@ body[data-body-font="sans"] {
   --font-body: var(--font-sans);
 }
 
-/* Legacy aliases — 아직 개편 전인 규칙들이 읽는다. 마지막 단계에서 제거. */
-:root {
-  --background: var(--paper);
-  --foreground: var(--fg);
-  --surface-elevated: var(--paper);
-  --primary: var(--fg);
-  --primary-fg: var(--paper);
-  --muted-fg: var(--muted);
-  --border: var(--line-soft);
-  --ring: var(--fg);
-  --destructive: var(--danger);
-  --brand: var(--accent);
-  --bg: var(--paper);
-  --bg-elevated: var(--paper);
-  --bg-nav: var(--paper);
-  --text: var(--fg);
-  --text-muted: var(--muted);
-  --accent-dim: color-mix(in srgb, var(--accent), transparent 90%);
-  --accent-glow: color-mix(in srgb, var(--accent), transparent 75%);
-  --code-bg: var(--surface);
-  --card-bg: var(--paper);
-  --radius-md: var(--radius);
-  --shadow-1: none;
-  --shadow-2: none;
-  --shadow-inset: none;
-  --nav-w: var(--sidebar-w);
-  --scrollbar-track: transparent;
-  --scrollbar-thumb: color-mix(in srgb, var(--muted), transparent 55%);
-  --scrollbar-thumb-hover: color-mix(in srgb, var(--accent-dark), transparent 30%);
-  --text-base--lh: 1.6;
-  --info-fg: #fff;
-  --success-fg: #fff;
-  --warning-fg: #000;
-  --destructive-fg: #fff;
-}
-
 /* ── Focus-visible (a11y) ── */
 :focus-visible {
-  outline: 2px solid var(--ring);
+  outline: 2px solid var(--fg);
   outline-offset: 2px;
 }
 
@@ -133,10 +98,10 @@ body[data-body-font="sans"] {
   inset-inline-start: 0.5rem;
   top: 0.5rem;
   padding: 0.5rem 0.75rem;
-  background: var(--surface-elevated);
-  color: var(--primary);
-  border: 2px solid var(--ring);
-  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--fg);
+  border: 2px solid var(--fg);
+  border-radius: var(--radius);
   z-index: 999;
   transform: translateY(-150%);
   transition: transform 0.18s ease;
@@ -1467,33 +1432,32 @@ body[data-page-type="topic"] .site-header-inner {
   border: 0;
 }
 
-/* ── Search modal backdrop ── */
+/* ── Search modal ── */
 .search-backdrop {
   position: fixed;
   inset: 0;
   z-index: 300;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgb(0 0 0 / 0.4);
 }
 .search-backdrop[hidden] {
   display: none;
 }
 
-/* ── Search modal ── */
 .search-modal {
   position: fixed;
+  top: 12dvh;
   left: 50%;
-  top: 12vh;
-  transform: translateX(-50%);
   z-index: 310;
-  width: min(90vw, 600px);
-  max-height: 76vh;
-  background: var(--surface-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-3);
   display: flex;
   flex-direction: column;
+  width: min(90vw, 37.5rem);
+  max-height: 76dvh;
   overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  box-shadow: -6px 6px 0 var(--line);
+  transform: translateX(-50%);
 }
 .search-modal[hidden] {
   display: none;
@@ -1502,21 +1466,21 @@ body[data-page-type="topic"] .site-header-inner {
 .search-header {
   display: flex;
   align-items: center;
+  border-bottom: 1px solid var(--line);
 }
 
 .search-input {
   flex: 1;
-  min-width: 0;
   width: 100%;
-  padding: var(--space-4) var(--space-5);
-  font-size: var(--text-lg);
-  border: none;
-  border-bottom: 1px solid var(--border);
+  min-width: 0;
+  padding: 1rem 1.25rem;
+  border: 0;
   background: transparent;
-  color: var(--foreground);
+  color: var(--fg);
+  font-size: var(--text-lg);
 }
 .search-input::placeholder {
-  color: var(--muted-fg);
+  color: #8a8a8a;
 }
 .search-input:focus {
   outline: none;
@@ -1529,169 +1493,205 @@ body[data-page-type="topic"] .site-header-inner {
 .search-results {
   flex: 1;
   min-height: 0;
+  margin: 0;
+  padding: 0.5rem;
   overflow-y: auto;
   list-style: none;
-  margin: 0;
-  padding: var(--space-2);
+  scrollbar-width: thin;
 }
 
 .search-empty {
-  padding: var(--space-6) var(--space-4);
-  text-align: center;
-  color: var(--muted-fg);
+  padding: 1.5rem 1rem;
+  color: var(--muted);
   font-size: var(--text-sm);
+  text-align: center;
 }
 
 .search-result {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
   cursor: pointer;
 }
-.search-result:hover,
-.search-result.active {
+.search-result:hover {
   background: var(--surface);
+}
+.search-result.active {
+  border-color: var(--accent-dark);
+  background: var(--accent-soft);
 }
 
 .search-result-title {
-  font-weight: 600;
-  color: var(--foreground);
-  margin-bottom: var(--space-1);
+  margin-bottom: 0.25rem;
+  color: var(--fg);
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .search-result-breadcrumb {
+  margin-bottom: 0.25rem;
+  color: var(--muted);
   font-size: var(--text-xs);
-  color: var(--muted-fg);
-  margin-bottom: var(--space-1);
+  overflow-wrap: anywhere;
 }
 
 .search-result-snippet {
-  font-size: var(--text-sm);
-  color: var(--muted-fg);
-  line-height: var(--text-sm--lh);
   display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .search-result-snippet mark {
-  background: color-mix(in srgb, var(--warning), transparent 70%);
-  color: var(--foreground);
   padding: 0.05em 0.2em;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent), transparent 45%);
+  color: var(--fg);
 }
 
 .search-footer {
   display: flex;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-5);
-  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
   font-size: var(--text-xs);
-  color: var(--muted-fg);
 }
 
 .search-footer kbd {
   display: inline-block;
   padding: 0.05em 0.35em;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius-sm);
   font-family: inherit;
   font-size: 0.9em;
   line-height: 1.4;
 }
 
-@media (max-width: 800px) {
+/* ≤52em(= 모바일, 큰 확대 배율의 데스크톱 포함): 전체 화면 */
+@media (width <= 52em) {
   .search-modal {
-    left: 0;
     top: 0;
-    transform: none;
-    width: 100vw;
-    height: 100vh;
+    left: 0;
+    width: 100%;
+    height: 100dvh;
     max-height: none;
+    border: 0;
     border-radius: 0;
+    box-shadow: none;
+    transform: none;
   }
   .search-close-btn {
     display: inline-flex;
-    min-width: 2.75rem;
-    min-height: 2.75rem;
+    flex: none;
     align-items: center;
     justify-content: center;
-    border: none;
-    background: transparent;
-    color: var(--muted-fg);
-    font-size: 1.2rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-right: 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--fg);
+    font-size: 1rem;
     cursor: pointer;
     touch-action: manipulation;
   }
   .search-footer {
-    padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
   }
 }
 
-/* ── Search hit highlight (match jump) ── */
-.search-hit-mark {
-  background: color-mix(in srgb, var(--warning), transparent 60%);
-  color: var(--foreground);
-  padding: 0.05em 0.25em;
-  border-radius: var(--radius-sm);
-  outline: 2px solid color-mix(in srgb, var(--warning), transparent 30%);
-  transition: background 1s ease, outline-color 1s ease;
-}
-.search-hit-mark.fading {
-  background: transparent;
-  outline-color: transparent;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .search-hit-mark {
-    transition: none;
-  }
-}
-
-/* ── Print ── */
+/* ── Print ──
+   화면 전용 크롬(헤더·사이드바·TOC·버튼·검색·이전/다음)을 걷어 내고 문서 흐름으로 출력한다. */
 @media print {
-  .main-header,
+  .site-header,
   .nav-panel,
-  .nav-brand,
+  .nav-backdrop,
   .toc-panel,
   .toc-backdrop,
-  .nav-backdrop,
+  .toc-inline,
+  .pager,
   .search-modal,
-  .section-tabs-wrap,
-  .code-copy-btn,
-  .code-lang,
-  .copy-toast,
+  .search-backdrop,
   .skip-link,
-  .main-header-actions,
-  .toc-toggle,
-  .search-trigger,
-  .tabs-toggle,
-  .nav-toggle { display: none !important; }
-
-  html, body {
-    background: white !important;
-    color: black !important;
+  .copy-code-btn,
+  .site-footer-credit {
+    display: none;
   }
-  .prose a { color: var(--link); text-decoration: underline; }
-  .prose a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; }
 
-  .content-viewport {
-    padding: 0 !important;
-    max-width: 100% !important;
-    overflow: visible !important;
-    height: auto !important;
+  html,
+  body {
+    background: #fff;
+    color: #000;
   }
-  .prose { color: black; }
-  .prose pre, .prose code { background: transparent !important; border: 1px solid #ddd; }
-  .prose blockquote { border-left: 3px solid #333; }
-  .prose h2, .prose h3 { page-break-after: avoid; }
-  .prose pre { page-break-inside: avoid; }
-  .app { display: block !important; height: auto !important; }
+
+  .layout-topic {
+    display: block;
+  }
+  .view-topic,
+  .landing {
+    padding: 0;
+  }
+  .topic-article {
+    max-width: none;
+  }
+  .article-title,
+  .landing-title {
+    font-size: 2.5rem;
+  }
+  .landing-section {
+    grid-template-columns: 12rem minmax(0, 1fr);
+    gap: 1.5rem;
+    break-inside: avoid;
+  }
+  .landing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .topic-card:hover {
+    box-shadow: none;
+    transform: none;
+  }
+
+  .prose a {
+    color: #000;
+    text-decoration: underline;
+  }
+  .prose a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+  }
+  .prose h2,
+  .prose h3 {
+    break-after: avoid;
+  }
+  .code-block,
+  .callout,
+  .cmdstack,
+  .relflow,
+  .flowchart-diagram,
+  .prose tr {
+    break-inside: avoid;
+  }
+  .code-block pre[class*="language-"] {
+    overflow: visible;
+    white-space: pre-wrap;
+  }
+  .prose-table-wrap {
+    overflow: visible;
+  }
 
   /* SVG 간선은 화면 전용(폴백 전환 규칙은 SVG 섹션 뒤의 별도 @media print 블록).
      .fc-edges/.fc-edge-labels는 기본 규칙에 display가 없어 여기서 꺼도 충돌 없음. */
   .fc-edges,
-  .fc-edge-labels { display: none; }
+  .fc-edge-labels {
+    display: none;
+  }
 }
 
 /* ── Landing page ── */
