@@ -397,7 +397,14 @@ function pageShell(opts) {
   const siteFooter = renderFooter(site);
   const tocPanel = pageType === "topic"
     ? `
-    <aside class="toc-panel" id="toc-panel" aria-label="이 페이지 목차"></aside>`
+    <aside class="toc-panel" id="toc-panel" aria-label="이 페이지 목차">
+      <div class="toc-head">
+        <span class="toc-title">이 페이지</span>
+        <button type="button" class="icon-btn toc-close" id="toc-close" aria-label="목차 닫기">${ICON_CLOSE}</button>
+      </div>
+      <div class="toc-list" data-toc-list></div>
+      <button type="button" class="toc-top" data-toc-top>↑ 맨 위로</button>
+    </aside>`
     : "";
   const tocBackdrop = pageType === "topic"
     ? `
@@ -660,6 +667,10 @@ function renderTopicPage(siteData, slug, topic, customAssets) {
         ${breadcrumbHtml}
         <h1 class="article-title">${titleLines.join("<br>")}</h1>${summaryHtml}
       </header>
+      <details class="toc-inline" id="toc-inline">
+        <summary>이 페이지 목차</summary>
+        <div class="toc-list" data-toc-list></div>
+      </details>
       <div class="content-viewport prose" id="content-viewport">
 ${sectionsHtml}
       </div>${renderPager(prev, next, linkToTopic)}

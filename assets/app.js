@@ -126,60 +126,71 @@
     }
   });
 
-  /* ── TOC (section-per-view model) ──
-     Each TOC anchor links to the section element (id = {slug}-{sectionId}).
-     Click handler prevents default and uses smooth scroll.
-  */
-  var tocSections = null;
+  /* ── TOC ──
+     목록은 [data-toc-list] 컨테이너마다 렌더한다: 오른쪽 열/드로어(#toc-panel)와 ≤75em 용 인라인 접이식(details.toc-inline).
+     항목 = 섹션 h2 + 그 안의 h3/h4. 항목마다 data-toc-key 로 tocEntries(문서 순서)와 연결해 클릭 이동·스크롤스파이에 쓴다. */
+  var tocEntries = [];   // { el, heading } — 문서 순서
+  var tocActiveKey = -1;
 
-  function clearToc() {
-    tocSections = null;
-    var panel = document.getElementById("toc-panel");
-    if (panel) panel.innerHTML = "";
+  function findSectionEl(sec) {
+    return document.getElementById(topicSlug + "-" + sec.id);
+  }
+
+  // 같은 id 의 헤딩이 섹션마다 있을 수 있어(섹션별로 slug 를 만든다) 항목이 속한 섹션 안에서 찾는다.
+  function findHeadingEl(secEl, heading) {
+    return secEl ? secEl.querySelector('[id="' + heading.id + '"]') : null;
+  }
+
+  function buildTocList() {
+    var ul = document.createElement("ul");
+    ul.className = "toc-items";
+    tocEntries.forEach(function (entry, key) {
+      var li = document.createElement("li");
+      var a = document.createElement("a");
+      a.className = entry.depth >= 3 ? "toc toc-l3" : "toc";
+      a.href = entry.href;
+      a.dataset.tocKey = key;
+      a.textContent = entry.text;
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    return ul;
   }
 
   function initToc(sections) {
-    tocSections = sections;
-    var panel = document.getElementById("toc-panel");
-    if (!panel) return;
-    panel.innerHTML = "";
-    if (!sections || sections.length === 0) return;
-
-    var ul = document.createElement("ul");
-
-    sections.forEach(function (sec, i) {
-      // Section h2
-      var li = document.createElement("li");
-      li.className = "depth-2";
-      var a = document.createElement("a");
-      a.href = "#" + topicSlug + "-" + sec.id;
-      a.dataset.sectionIdx = i;
-      a.dataset.tocTarget = sec.id;
-      a.textContent = sec.title;
-      li.appendChild(a);
-      ul.appendChild(li);
-
-      // h3/h4 within section
-      if (sec.headings) {
-        sec.headings.forEach(function (h) {
-          if (h.depth < 3) return; // skip the virtual h2
-          var subLi = document.createElement("li");
-          subLi.className = "depth-" + h.depth;
-          var subA = document.createElement("a");
-          subA.href = "#" + topicSlug + "-" + h.id;
-          subA.dataset.sectionIdx = i;
-          subA.dataset.headingId = h.id;
-          subA.textContent = h.text;
-          subLi.appendChild(subA);
-          ul.appendChild(subLi);
-        });
-      }
+    tocEntries = [];
+    (sections || []).forEach(function (sec) {
+      var secEl = findSectionEl(sec);
+      if (!secEl) return;
+      tocEntries.push({
+        el: secEl.querySelector(".topic-section-title") || secEl,
+        text: sec.title,
+        depth: 2,
+        href: "#" + topicSlug + "-" + sec.id,
+        flash: false,
+      });
+      (sec.headings || []).forEach(function (h) {
+        if (h.depth < 3) return; // 맨 앞 가상 h2(섹션 제목)는 위에서 처리
+        var hEl = findHeadingEl(secEl, h);
+        if (!hEl) return;
+        tocEntries.push({ el: hEl, text: h.text, depth: h.depth, href: "#" + topicSlug + "-" + h.id, flash: true });
+      });
     });
 
-    panel.appendChild(ul);
+    var containers = document.querySelectorAll("[data-toc-list]");
+    containers.forEach(function (c) {
+      c.innerHTML = "";
+      if (tocEntries.length) c.appendChild(buildTocList());
+    });
+    var inline = document.getElementById("toc-inline");
+    if (inline) inline.hidden = tocEntries.length === 0;
+    if (tocPanel) tocPanel.classList.toggle("is-empty", tocEntries.length === 0);
+    updateScrollSpy();
   }
 
   /* ── TOC drawer (≤75em; 그 위에서는 오른쪽 열이 상시 보인다) ── */
+  var tocClose = document.getElementById("toc-close");
+
   function closeToc(restoreFocus) {
     if (!tocPanel || !tocPanel.classList.contains("open")) return;
     tocPanel.classList.remove("open");
@@ -196,13 +207,14 @@
     tocToggleBtn && tocToggleBtn.setAttribute("aria-expanded", "true");
     tocBackdrop && tocBackdrop.removeAttribute("hidden");
     syncScrollLock();
+    if (tocClose) tocClose.focus();
   }
 
   tocToggleBtn && tocToggleBtn.addEventListener("click", function () {
     if (tocPanel && tocPanel.classList.contains("open")) closeToc(true);
     else openToc();
   });
-
+  tocClose && tocClose.addEventListener("click", function () { closeToc(true); });
   tocBackdrop && tocBackdrop.addEventListener("click", function () { closeToc(true); });
 
   // TOC 클릭: 문서(window) 스크롤로 해당 요소 위치까지 부드럽게 이동.
@@ -214,30 +226,79 @@
     window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   }
 
-  tocPanel && tocPanel.addEventListener("click", function (e) {
-    var a = e.target.closest("a[data-section-idx]");
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest("a[data-toc-key]");
     if (!a) return;
+    var entry = tocEntries[parseInt(a.dataset.tocKey, 10)];
+    if (!entry) return;
     e.preventDefault();
-    var idx = parseInt(a.dataset.sectionIdx, 10);
-    var sec = tocSections && tocSections[idx];
-    if (!sec) return;
     closeToc();
-    var targetId = topicSlug + "-" + sec.id;
-    var el = document.getElementById(targetId);
-    if (el) scrollToWithin(el);
-    var headingId = a.dataset.headingId;
-    if (headingId) {
-      requestAnimationFrame(function () {
-        var hEl = document.getElementById(topicSlug + "-" + headingId);
-        if (!hEl) hEl = document.getElementById(headingId);
-        if (hEl) {
-          scrollToWithin(hEl);
-          hEl.classList.add("anchor-flash");
-          setTimeout(function () { hEl.classList.remove("anchor-flash"); }, 1500);
-        }
-      });
+    scrollToWithin(entry.el);
+    if (entry.flash) {
+      entry.el.classList.add("anchor-flash");
+      setTimeout(function () { entry.el.classList.remove("anchor-flash"); }, 1500);
     }
   });
+
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("[data-toc-top]")) return;
+    closeToc();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  /* ── Scroll-spy ──
+     뷰포트 위쪽 30% 선을 지난 마지막 헤딩이 현재 위치. 페이지 맨 아래에서는 마지막 항목.
+     스크롤/리사이즈를 rAF 로 묶어 계산한다 — 항목이 수십 개라 getBoundingClientRect 비용은 무시할 수준. */
+  var spyFrame = 0;
+  var SPY_LINE = 0.3;
+
+  function setActiveToc(key) {
+    if (key === tocActiveKey) return;
+    tocActiveKey = key;
+    document.querySelectorAll("a[data-toc-key].active").forEach(function (a) {
+      a.classList.remove("active");
+      a.removeAttribute("aria-current");
+    });
+    if (key < 0) return;
+    document.querySelectorAll('a[data-toc-key="' + key + '"]').forEach(function (a) {
+      a.classList.add("active");
+      a.setAttribute("aria-current", "location");
+      // 스티키 TOC 열이 스스로 스크롤될 때만 활성 항목이 보이도록 맞춘다(문서 스크롤은 건드리지 않음).
+      var panel = a.closest(".toc-panel");
+      if (panel && panel.scrollHeight > panel.clientHeight) {
+        var pr = panel.getBoundingClientRect();
+        var ar = a.getBoundingClientRect();
+        if (ar.top < pr.top + 48) panel.scrollTop -= pr.top + 48 - ar.top;
+        else if (ar.bottom > pr.bottom - 48) panel.scrollTop += ar.bottom - (pr.bottom - 48);
+      }
+    });
+  }
+
+  function updateScrollSpy() {
+    spyFrame = 0;
+    if (!tocEntries.length) return;
+    var line = window.innerHeight * SPY_LINE;
+    var active = -1;
+    for (var i = 0; i < tocEntries.length; i++) {
+      if (tocEntries[i].el.getBoundingClientRect().top <= line) active = i;
+      else break;
+    }
+    var atBottom = window.pageYOffset > 0 &&
+      window.innerHeight + window.pageYOffset >= document.documentElement.scrollHeight - 2;
+    if (atBottom) active = tocEntries.length - 1;
+    setActiveToc(active);
+  }
+
+  function requestScrollSpy() {
+    if (!spyFrame) spyFrame = requestAnimationFrame(updateScrollSpy);
+  }
+
+  if (pageType === "topic") {
+    window.addEventListener("scroll", requestScrollSpy, { passive: true });
+    window.addEventListener("resize", requestScrollSpy);
+    window.addEventListener("load", requestScrollSpy);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(requestScrollSpy);
+  }
 
   /* ── Nav panel scroll save/restore ──
      왼쪽 카테고리(nav-panel) 스크롤 위치를 localStorage에 저장.
