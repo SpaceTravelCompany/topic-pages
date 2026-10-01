@@ -1499,61 +1499,287 @@ body[data-page-type="topic"] .site-header-inner {
 }
 
 /* ── Landing page ── */
-.view-landing { max-width: 80rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+.landing {
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 5.5rem 2rem 7.5rem;
+}
+
+.landing-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 2rem;
+}
+
+.landing-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 6rem;
+  font-weight: 400;
+  line-height: 0.9;
+  overflow-wrap: anywhere;
+}
+
 .landing-subtitle {
-  margin: 0 0 1rem;
-  color: var(--muted-fg);
-  font-size: var(--text-base);
+  max-width: 40rem;
+  margin: 1.25rem 0 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.7;
 }
-.landing-section { margin-bottom: 2rem; }
+
+.landing-stats {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.landing-section {
+  display: grid;
+  grid-template-columns: 17.5rem minmax(0, 1fr);
+  gap: 3rem;
+  padding: 2.5rem 0 3.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.landing-section-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.landing-section-no,
+.landing-section-count {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.landing-section-no {
+  font-size: var(--text-sm);
+}
+
 .landing-section-title {
-  font-size: var(--text-base);
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: var(--muted-fg);
-  margin: 1.5rem 0 0.75rem;
-  font-weight: 600;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 2.75rem;
+  font-weight: 400;
+  line-height: 1;
+  overflow-wrap: anywhere;
 }
+
 .landing-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
-  margin: 1.5rem 0;
+  min-width: 0;
 }
+
+/* 카드: 아이콘(왼쪽) + ↗(오른쪽) 위 줄, 제목·요약 아래. ≤40em 에서는 모바일 시안의 행 리스트. */
 .topic-card {
-  display: block;
-  padding: 1rem 1.25rem;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--card-bg);
-  box-shadow: var(--shadow-1);
-  color: inherit;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "icon arrow"
+    "text text";
+  align-content: start;
+  gap: 0.75rem;
+  min-height: 9.25rem;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  color: var(--fg);
   text-decoration: none;
-  transition: box-shadow .15s ease, transform .15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
   touch-action: manipulation;
 }
 .topic-card:hover,
 .topic-card:focus-visible {
-  box-shadow: var(--shadow-2);
-  transform: translateY(-1px);
+  box-shadow: var(--shadow-offset);
+  color: var(--fg);
+  transform: translate(2px, -2px);
 }
+
+.topic-card-icon {
+  grid-area: icon;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  font-family: "Segoe UI Symbol", var(--font-mono);
+  font-size: 1.0625rem;
+}
+
+.topic-card-arrow {
+  grid-area: arrow;
+  justify-self: end;
+  color: var(--muted);
+}
+.topic-card-chevron {
+  display: none;
+  grid-area: chevron;
+  color: var(--muted);
+}
+
+.topic-card-text {
+  grid-area: text;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
 .topic-card-title {
-  font-size: var(--text-lg);
-  font-weight: 600;
-  margin: 0 0 .25rem;
-  color: var(--text);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
-.topic-card-group {
-  font-size: var(--text-xs);
-  color: var(--muted-fg);
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  margin: 0 0 .5rem;
-}
+
 .topic-card-summary {
-  color: var(--muted-fg);
-  font-size: var(--text-sm);
-  margin: .25rem 0 0;
+  color: var(--muted);
+  font-size: 0.78125rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+@media (width <= 75em) {
+  .landing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (width <= 60em) {
+  .landing {
+    padding: 3rem 1rem 4rem;
+  }
+  .landing-title {
+    font-size: 3.5rem;
+  }
+  .landing-section {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    padding: 1.5rem 0 1rem;
+  }
+  .landing-section-meta {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+  .landing-section-no {
+    font-size: var(--text-xs);
+  }
+  .landing-section-title {
+    font-size: 2rem;
+  }
+  .landing-section-count {
+    display: none;
+  }
+}
+
+@media (width <= 40em) {
+  .landing-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .topic-card {
+    grid-template-columns: 2.125rem minmax(0, 1fr) 1rem;
+    grid-template-areas: "icon text chevron";
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 0;
+    padding: 0.75rem 0;
+    border: 0;
+    border-bottom: 1px solid var(--line-soft);
+    border-radius: 0;
+    background: none;
+  }
+  .topic-card:hover,
+  .topic-card:focus-visible {
+    box-shadow: none;
+    transform: none;
+  }
+  .topic-card-icon {
+    width: 2.125rem;
+    height: 2.125rem;
+    font-size: 0.9375rem;
+  }
+  .topic-card-arrow {
+    display: none;
+  }
+  .topic-card-chevron {
+    display: block;
+  }
+  .topic-card-text {
+    gap: 0.125rem;
+  }
+  .topic-card-title {
+    font-size: 0.875rem;
+  }
+  .topic-card-summary {
+    overflow: hidden;
+    font-size: 0.71875rem;
+    line-height: 1.5;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* ── Footer (랜딩·토픽 공통) ── */
+.site-footer {
+  border-top: 1px solid var(--line);
+}
+
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 3rem;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 1.375rem 2rem;
+}
+
+.site-footer-label,
+.site-footer-credit {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.site-footer-link {
+  padding-top: 0.1875rem;
+  color: #888;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  line-height: 1;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.site-footer-link:hover {
+  color: var(--fg);
+}
+
+.site-footer-credit {
+  margin-left: auto;
+}
+
+@media (width <= 60em) {
+  .site-footer-inner {
+    padding: 1.125rem 1rem;
+    gap: 0.625rem 1.5rem;
+  }
+  .site-footer-label {
+    width: 100%;
+  }
+  .site-footer-link {
+    font-size: 1.5rem;
+  }
 }
 
 /* ── Flowchart (HTML/CSS div-based) ── */

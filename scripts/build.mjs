@@ -141,26 +141,26 @@ function buildTopicSections(body) {
   });
 }
 
-function renderReferences(references) {
-  if (!Array.isArray(references) || references.length === 0) return "";
-
-  const links = references
-    .map((ref) => {
-      const label = escapeHtml(ref.label || "");
-      const href = escapeHtml(ref.href || "#");
-      return `    <a class="reference-link" href="${href}" target="_blank" rel="noopener noreferrer">
-      <span class="reference-link-mark" aria-hidden="true">↗</span>
-      <span class="reference-link-label">${label}</span>
-    </a>`;
-    })
-    .join("\n");
-
-  return `  <div class="nav-reference" aria-label="외부 참고 레퍼런스">
-    <p class="nav-group-label">외부 참고 레퍼런스</p>
-    <div class="reference-links">
-${links}
-    </div>
-  </div>`;
+// 랜딩·토픽 공통 푸터: 참고 자료 링크(선택) + 빌더 크레딧.
+function renderFooter(site) {
+  const refs = Array.isArray(site.references) ? site.references : [];
+  const refsHtml = refs.length
+    ? `
+    <span class="site-footer-label">참고 자료 →</span>` +
+      refs
+        .map((ref) => {
+          const label = escapeHtml(ref.label || "");
+          const href = escapeHtml(ref.href || "#");
+          return `
+    <a class="site-footer-link" href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+        })
+        .join("")
+    : "";
+  return `<footer class="site-footer">
+  <div class="site-footer-inner">${refsHtml}
+    <span class="site-footer-credit">Built with topic-pages</span>
+  </div>
+</footer>`;
 }
 
 // 아이콘은 시안처럼 흑백 글리프로 보이게 U+FE0E(text presentation)를 붙인다 — 🔍 ⌛ 같은 이모지가 컬러로 뜨는 것 방지.
@@ -174,6 +174,10 @@ const ICON_MENU =
   '<svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>';
 const ICON_CLOSE =
   '<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>';
+const ICON_ARROW_UP_RIGHT =
+  '<svg class="icon topic-card-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"></path></svg>';
+const ICON_CHEVRON_RIGHT =
+  '<svg class="icon topic-card-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>';
 const ICON_CHEVRON_DOWN =
   '<svg class="icon nav-group-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>';
 
@@ -390,6 +394,7 @@ function pageShell(opts) {
   const landingHref = makeLandingHref(site?.baseUrl || "", pageType === "topic");
   const nav = renderNav(site, linkToTopic, activeTopicSlug);
   const siteHeader = renderSiteHeader(site, landingHref, pageType);
+  const siteFooter = renderFooter(site);
   const tocPanel = pageType === "topic"
     ? `
     <aside class="toc-panel" id="toc-panel" aria-label="이 페이지 목차"></aside>`
@@ -460,6 +465,7 @@ ${themeStyle}
       ${bodyHtml}
     </main>${tocPanel}
   </div>
+  ${siteFooter}
 ${topicDataScript}  <div class="search-backdrop" id="search-backdrop" hidden></div>
   <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-labelledby="search-input-label" hidden>
     <div class="search-header">
@@ -517,35 +523,52 @@ function renderLandingPage(siteData, searchIndex, customAssets) {
   const asset = makeAssetFn(baseUrl, false);
   const linkToTopic = makeLinkFn(baseUrl, false);
 
-  // Landing cards with <a href="topics/<slug>.html">
+  const topicCount = sections.reduce((n, section) => n + (section.topics || []).length, 0);
+
   const sectionGroupsHtml = sections
-    .map((section) => {
-      const cards = (section.topics || [])
+    .map((section, idx) => {
+      const topicList = section.topics || [];
+      const cards = topicList
         .map((topic) => {
           const meta = topics[topic.slug];
           const summary = topic.summary || meta?.summary || "";
-          return `    <a class="topic-card" href="${linkToTopic(topic.slug)}">
-      <p class="topic-card-group">${escapeHtml(section.title)}</p>
-      <h3 class="topic-card-title">${topic.icon ? escapeHtml(topic.icon) + " " : ""}${escapeHtml(topic.title)}</h3>
-      ${summary ? `<p class="topic-card-summary">${escapeHtml(summary)}</p>` : ""}
-    </a>`;
+          return `        <a class="topic-card" href="${linkToTopic(topic.slug)}">
+          <span class="topic-card-icon" aria-hidden="true">${renderIcon(topic.icon)}</span>
+          ${ICON_ARROW_UP_RIGHT}${ICON_CHEVRON_RIGHT}
+          <span class="topic-card-text">
+            <span class="topic-card-title">${escapeHtml(topic.title)}</span>${summary ? `
+            <span class="topic-card-summary">${escapeHtml(summary)}</span>` : ""}
+          </span>
+        </a>`;
         })
         .join("\n");
 
-      return `  <section class="landing-section">
-    <h2 class="landing-section-title">${escapeHtml(section.title)}</h2>
-    <div class="landing-grid">
+      const no = String(idx + 1).padStart(2, "0");
+      return `      <section class="landing-section" aria-label="${escapeHtml(section.title)}">
+        <div class="landing-section-meta">
+          <span class="landing-section-no">${no}</span>
+          <h2 class="landing-section-title">${escapeHtml(section.title)}</h2>
+          <span class="landing-section-count">${topicList.length}개 주제</span>
+        </div>
+        <div class="landing-grid">
 ${cards}
-    </div>
-  </section>`;
+        </div>
+      </section>`;
     })
     .join("\n");
 
   const landingSubtitleHtml = site.subtitle
-    ? `\n  <p class="landing-subtitle">${escapeHtml(site.subtitle)}</p>`
+    ? `
+          <p class="landing-subtitle">${escapeHtml(site.subtitle)}</p>`
     : "";
 
-  const landingHtml = `    <article class="content-viewport prose" id="content-viewport-landing" role="tabpanel">${landingSubtitleHtml}
+  const landingHtml = `    <article class="landing" id="content-viewport-landing">
+      <div class="landing-head">
+        <div class="landing-head-text">
+          <h1 class="landing-title">전체 주제</h1>${landingSubtitleHtml}
+        </div>
+        <span class="landing-stats">${sections.length}개 섹션 · ${topicCount}개 주제</span>
+      </div>
 ${sectionGroupsHtml}
     </article>`;
 
