@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
 import { renderMarkdown } from "../lib/markdown.js";
 import { splitMarkdownByH2 } from "../lib/sections.js";
 import { escapeHtml, slugify } from "../lib/html.js";
@@ -96,9 +97,9 @@ function parseArgs(argv) {
   return args;
 }
 
-function makeAssetFn(baseUrl, isTopic) {
-  if (baseUrl) return (p) => baseUrl.replace(/\/+$/, "") + "/" + p;
-  return isTopic ? (p) => "../" + p : (p) => p;
+function makeAssetFn(baseUrl, isTopic, versions) {
+  const prefix = baseUrl ? baseUrl.replace(/\/+$/, "") + "/" : isTopic ? "../" : "";
+  return (p) => prefix + p + (versions[p] ? `?v=${versions[p]}` : "");
 }
 
 function makeLinkFn(baseUrl, isTopic) {
@@ -531,7 +532,7 @@ function renderLandingPage(siteData, searchIndex, customAssets) {
   const sections = site.sections || [];
   const baseUrl = site.baseUrl || "";
 
-  const asset = makeAssetFn(baseUrl, false);
+  const asset = makeAssetFn(baseUrl, false, siteData.assetVersions);
   const linkToTopic = makeLinkFn(baseUrl, false);
 
   const topicCount = sections.reduce((n, section) => n + (section.topics || []).length, 0);
@@ -643,7 +644,7 @@ function renderTopicPage(siteData, slug, topic, customAssets) {
   const site = siteData.site;
   const baseUrl = site.baseUrl || "";
 
-  const asset = makeAssetFn(baseUrl, true);
+  const asset = makeAssetFn(baseUrl, true, siteData.assetVersions);
   const linkToTopic = makeLinkFn(baseUrl, true);
 
   // Single topic's sections, prefixed ids for anchor compatibility
@@ -711,20 +712,17 @@ ${topicHtml}
   });
 }
 
-// custom.css/custom.js 존재 여부 검사 — copyAssets과 동일한 순서(사용자 assets 우선, 빌더 기본 assets 폴백).
-// pageShell이 <link>/<script> 태그를 조건부로 추가하는 근거.
-async function hasAsset(args, file) {
-  const userSrc = path.join(args.assets, file);
-  const builderAssets = path.resolve(__dirname, "..", "assets");
-  const fallbackSrc = path.join(builderAssets, file);
-  try { await fs.access(userSrc); return true; } catch {}
-  try { await fs.access(fallbackSrc); return true; } catch {}
-  return false;
-}
-
 async function copyAssets(args) {
   const dest = path.join(args.out, "assets");
   await fs.mkdir(dest, { recursive: true });
+  const versions = {};
+  // Hash the bytes actually shipped, including user overrides. Updated HTML
+  // must not reuse cached CSS or JS from a previous, incompatible build.
+  async function copyVersionedAsset(source, file) {
+    const content = await fs.readFile(source);
+    await fs.writeFile(path.join(dest, file), content);
+    versions[`assets/${file}`] = createHash("sha256").update(content).digest("hex").slice(0, 16);
+  }
 
   const required = ["main.css", "prism.css", "prism.js", "app.js", "favicon.svg"];
   const optional = ["custom.css", "custom.js"];
@@ -751,7 +749,7 @@ async function copyAssets(args) {
     }
 
     if (chosen) {
-      await fs.copyFile(chosen, path.join(dest, file));
+      await copyVersionedAsset(chosen, file);
     } else if (required.includes(file)) {
       console.warn(`  warn: required asset not found in user or builder: ${file}`);
     }
@@ -777,7 +775,8 @@ async function copyAssets(args) {
   // Resolve through Node so a hoisted dependency works in installed packages.
   // Ship the browser layout engine and its license locally, without a CDN.
   const dagreDist = path.dirname(createRequire(import.meta.url).resolve("@dagrejs/dagre"));
-  for (const file of layoutAssets) await fs.copyFile(path.join(dagreDist, file), path.join(dest, file));
+  for (const file of layoutAssets) await copyVersionedAsset(path.join(dagreDist, file), file);
+  return versions;
 }
 
 async function main() {
@@ -801,9 +800,9 @@ async function main() {
   const searchIndex = buildSearchIndex(siteData);
   console.log(`  search index: ${searchIndex.records.length} records`);
 
-  // custom.css/custom.js 존재 검사 — copyAssets과 동일 소스 우선순위.
-  const hasCustomCss = await hasAsset(args, "custom.css");
-  const hasCustomJs = await hasAsset(args, "custom.js");
+  siteData.assetVersions = await copyAssets(args);
+  const hasCustomCss = Boolean(siteData.assetVersions["assets/custom.css"]);
+  const hasCustomJs = Boolean(siteData.assetVersions["assets/custom.js"]);
   if (hasCustomCss) console.log("  custom.css: loaded");
   if (hasCustomJs) console.log("  custom.js: loaded");
 
@@ -833,7 +832,6 @@ async function main() {
   );
   console.log("  search-index.json");
 
-  await copyAssets(args);
   console.log(`\nBuild complete → ${args.out}`);
 }
 

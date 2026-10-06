@@ -86,6 +86,8 @@ node scripts/build.mjs [옵션]
 
 `main.css`, `prism.css`, `prism.js`, `app.js`, `favicon.svg`는 사용자 `assets/`에 없으면 빌더 기본본을 쓴다. 보통은 `favicon.svg`만 사이트별로 두면 된다. `assets/custom.css`, `assets/custom.js`가 있으면 자동으로 로드된다. 그 밖의 파일(이미지 등)은 `dist/assets/`로 그대로 복사된다.
 
+페이지에서 로드하는 에셋 URL에는 파일 내용의 해시가 붙는다. 재배포 후 새 HTML에 이전 CSS·JS 캐시가 섞이는 것을 방지하며, 내용이 같은 파일은 캐시를 재사용한다.
+
 ## site.json 스키마
 
 ```jsonc
