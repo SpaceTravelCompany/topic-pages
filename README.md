@@ -12,7 +12,7 @@
 - **문서 스크롤 레이아웃**: 사이드바(주제 필터 포함)와 오른쪽 목차는 sticky, 좁은 폭에서는 드로어로 바뀐다. 오른쪽 목차는 스크롤 위치를 따라 현재 항목을 표시한다.
 - **마크다운 + 커스텀 코드 블록**: 일반 마크다운, KaTeX 수식, 콜아웃, `cmdstack` · `relflow` · `flowchart` 다이어그램.
 - **전문 검색**: 빌드 때 만든 `search-index.json`을 `Ctrl + K`로 검색.
-- **외부 의존성 1개**: [`marked`](https://github.com/markedjs/marked) 외 없음. (웹폰트·KaTeX는 CDN에서 불러온다.)
+- **외부 의존성 2개**: [`marked`](https://github.com/markedjs/marked)와 그래프 배치용 [`@dagrejs/dagre`](https://github.com/dagrejs/dagre). 다이어그램 엔진은 빌드 결과에 포함한다. (웹폰트·KaTeX는 CDN에서 불러온다.)
 - **도메인 무관**: `site.json`의 `title`, `subtitle`, `references`, `theme`, `storagePrefix`로 브랜딩을 모두 처리.
 
 ## 사용법
@@ -167,6 +167,22 @@ slug: 동일 slug
 - ` ```flowchart ` — Mermaid 부분집합 흐름도
 - `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`, `> [!DANGER]`, `> [!INFO]`, `> [!SUCCESS]` — 콜아웃
 - `$...$`, `$$...$$` — KaTeX 수식
+
+### Flowchart
+
+노드·라벨의 실제 크기를 브라우저에서 측정해 Dagre로 노드와 연결선을 함께 배치한다. 폰트 로딩·화면 크기·글자 크기가 바뀌면 다시 계산한다. 넓은 그래프는 다이어그램 안에서 가로로 스크롤하며, 인쇄할 때는 노드와 선을 함께 축소한다.
+
+지원 문법은 `flowchart TD|TB|BT|LR|RL`, 사각형 `A["text"]`, 둥근 노드 `A(["text"])` / `A(text)`, `-->` 연결·연쇄, `-->|"label"|` 라벨, `A & B --> C & D` 분기·합류, `subgraph ID["title"]` … `end` 묶음이다. `;`로 문장을 나누고 `%%`로 주석을 쓸 수 있다. 라벨 안의 `\n`은 줄바꿈으로 표시한다. 레벨을 건너뛰는 연결, 순환 연결, 자기 자신으로 돌아가는 연결도 보존한다. Mermaid 전체 문법을 지원하지는 않으며, 묶음 자체를 연결하는 화살표 등 지원하지 않는 문법은 원문 코드로 표시한다.
+
+JavaScript가 꺼져 있으면 노드와 전체 연결 목록을 표시한다. 다이어그램 엔진과 라이선스는 `dist/assets/dagre.min.js`와 `dist/assets/dagre.min.js.LEGAL.txt`에 포함되어 CDN 연결 없이 동작한다.
+
+화면 회귀 테스트:
+
+```bash
+npm ci
+npx playwright install chromium
+npm test
+```
 
 ## 디렉토리 구조
 

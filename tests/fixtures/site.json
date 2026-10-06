@@ -1,0 +1,7 @@
+{
+  "title": "Flowchart regression",
+  "theme": { "accent": "#63C8C1" },
+  "sections": [{ "id": "diagrams", "title": "Diagrams", "topics": [
+    { "slug": "diagrams", "title": "Flowcharts", "summary": "Graph layout regression" }
+  ] }]
+}

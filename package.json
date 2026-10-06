@@ -13,9 +13,11 @@
     "topic-pages": "./bin/topic-pages.mjs"
   },
   "scripts": {
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "test": "playwright test"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^3.1.1",
     "marked": "^18.0.2"
   },
   "engines": {
@@ -43,5 +45,8 @@
     "spa",
     "vulkan",
     "graphics"
-  ]
+  ],
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
 }

@@ -120,6 +120,7 @@ body[data-body-font="sans"] {
 .toc-panel,
 .prose-table-wrap,
 .flowchart-diagram {
+  position: relative;
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }
@@ -1725,12 +1726,6 @@ body[data-page-type="topic"] .site-header-inner {
     overflow: visible;
   }
 
-  /* SVG 간선은 화면 전용(폴백 전환 규칙은 SVG 섹션 뒤의 별도 @media print 블록).
-     .fc-edges/.fc-edge-labels는 기본 규칙에 display가 없어 여기서 꺼도 충돌 없음. */
-  .fc-edges,
-  .fc-edge-labels {
-    display: none;
-  }
 }
 
 /* ── Landing page ── */
@@ -2017,23 +2012,25 @@ body[data-page-type="topic"] .site-header-inner {
   }
 }
 
-/* ── Flowchart (HTML/CSS div-based) ── */
+/* ── Flowchart ──
+   The enhanced canvas owns both node positions and SVG routes. Horizontal
+   overflow stays inside the diagram; wrapping a rank would break its edges. */
 .flowchart-diagram {
   margin: 1.5em 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
+  overflow: auto;
   padding: 0.5rem 0;
-  position: relative;
 }
 
-.fc-row {
+.fc-canvas {
+  isolation: isolate;
+  position: relative;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 1rem;
-  flex-wrap: wrap;
+  margin-inline: auto;
 }
 
 .fc-node {
@@ -2047,101 +2044,113 @@ body[data-page-type="topic"] .site-header-inner {
   color: var(--fg);
   font-size: 0.9em;
   font-weight: 500;
-  white-space: nowrap;
-  min-width: fit-content;
+  text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  max-width: var(--fc-node-max-width, 26em);
 }
 
-.fc-round {
-  border-radius: 999px;
-}
+.fc-round { border-radius: 999px; }
 
 .fc-connectors {
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  padding: 0.35rem 0;
+  display: grid;
+  gap: 0.5em;
+  padding-inline-start: 1.5em;
+  font-size: 0.85em;
 }
 
-.fc-conn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  color: var(--accent-dark);
-}
-
-/* Vertical stem — turns the floating glyph into a real connector line */
-.fc-conn::before {
-  content: "";
-  display: block;
-  width: 2px;
-  height: 1rem;
-  background: var(--accent-dark);
-  border-radius: 2px;
-}
-
-.fc-conn-arrow {
-  display: block;
-  font-size: 0.8rem;
-  line-height: 1;
-  text-align: center;
-}
+.fc-conn { color: var(--accent-dark); }
 
 .fc-conn-label {
+  display: inline-block;
   font-size: 0.8em;
   color: var(--muted);
   background: var(--paper);
   padding: 0.1em 0.4em;
   border-radius: var(--radius-sm);
   border: 1px solid var(--line-soft);
+  white-space: pre-wrap;
 }
 
-/* ── Flowchart true edges (SVG overlay, drawn by app.js) ──
-   .fc-connectors 행은 폴백(no-JS)용. JS가 실측 간선을 그리면
-   .has-svg-edges가 붙어 폴백 행이 숨고 행 간격이 벌어진다. */
-.fc-edges {
+.has-svg-edges .fc-canvas { display: block; }
+.has-svg-edges .fc-node {
+  position: absolute;
+  width: max-content;
+  z-index: 2;
+}
+
+.fc-group-label {
+  display: block;
+  padding: 0.2em 0.5em;
+  font-size: 0.8em;
+  line-height: 1.3;
+  font-weight: 700;
+  text-align: center;
+  background: var(--paper);
+}
+.has-svg-edges .fc-group {
+  position: absolute;
+  border: 1px dashed var(--line-soft);
+  border-radius: var(--radius-sm);
+  z-index: 0;
+}
+.has-svg-edges .fc-group-label {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 1rem);
+  transform: translate(-50%, -50%);
+}
+
+/* Keep the complete connection list available to assistive technology. */
+.has-svg-edges .fc-connectors {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.fc-edges,
+.fc-edge-labels {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
-  overflow: visible;
 }
-
+.fc-edges { overflow: visible; z-index: 1; }
 .fc-edges .fc-edge-line {
   fill: none;
   stroke: var(--accent-dark);
   stroke-width: 2px;
+  stroke-linejoin: round;
 }
-
 .fc-edges .fc-edge-head {
   fill: var(--accent-dark);
   stroke: none;
 }
-
-.flowchart-diagram.has-svg-edges {
-  row-gap: 2.4rem;
-}
-
-.flowchart-diagram.has-svg-edges .fc-connectors {
-  display: none;
-}
-
-.fc-edge-labels {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
+.fc-edge-labels { z-index: 3; }
 .fc-edge-labels .fc-conn-label {
   position: absolute;
   transform: translate(-50%, -50%);
-  white-space: nowrap;
+  white-space: pre;
 }
 
-/* 인쇄: SVG 간선은 화면 기하로 실측되어 인쇄 재배치와 어긋나고(RO 미감지),
-   no-JS 폴백 커넥터가 인쇄 엔진 레이아웃을 그대로 따르므로 폴백으로 출력.
-   이 블록은 SVG 섹션 규칙보다 뒤에 있어야 동일 명시도에서 이긴다. */
+.flowchart-source {
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 @media print {
-  .flowchart-diagram.has-svg-edges { row-gap: 0; }
-  .flowchart-diagram.has-svg-edges .fc-connectors { display: flex; }
+  .flowchart-diagram { overflow: visible; }
+  .has-svg-edges .fc-canvas {
+    zoom: var(--fc-print-scale, 1);
+    margin-inline: 0;
+  }
 }

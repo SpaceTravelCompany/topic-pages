@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import { renderMarkdown } from "../lib/markdown.js";
 import { splitMarkdownByH2 } from "../lib/sections.js";
 import { escapeHtml, slugify } from "../lib/html.js";
@@ -518,6 +519,7 @@ ${topicDataScript}  <div class="search-backdrop" id="search-backdrop" hidden></d
       }
     });
   </script>
+  <script src="${asset("assets/dagre.min.js")}"></script>
   <script src="${asset("assets/app.js")}"></script>${customJsScript}
 </body>
 </html>`;
@@ -758,7 +760,8 @@ async function copyAssets(args) {
   // 사용자 assets 디렉터리의 나머지 파일(필수/선택 목록에 없는 것)도 dist/assets/로 복사.
   // 마크다운 콘텐츠에서 참조하는 임의의 이미지(PNG, JPG 등)가 dist에 포함되도록.
   // 빌더 자신의 assets는 폴백 전용이므로 여기선 복사하지 않음.
-  const pinned = new Set([...required, ...optional]);
+  const layoutAssets = ["dagre.min.js", "dagre.min.js.LEGAL.txt"];
+  const pinned = new Set([...required, ...optional, ...layoutAssets]);
   try {
     const entries = await fs.readdir(args.assets, { withFileTypes: true });
     for (const entry of entries) {
@@ -770,6 +773,11 @@ async function copyAssets(args) {
   } catch {
     // args.assets 디렉터리가 존재하지 않으면 조용히 건너뜀
   }
+
+  // Resolve through Node so a hoisted dependency works in installed packages.
+  // Ship the browser layout engine and its license locally, without a CDN.
+  const dagreDist = path.dirname(createRequire(import.meta.url).resolve("@dagrejs/dagre"));
+  for (const file of layoutAssets) await fs.copyFile(path.join(dagreDist, file), path.join(dest, file));
 }
 
 async function main() {

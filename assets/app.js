@@ -383,132 +383,192 @@
     });
   }
 
-  /* ── Flowchart true edges (SVG overlay) ──
-     빌드 시 렌더러(lib/flowchart.js)는 레벨별 노드 행 + 폴백 화살표 행
-     (.fc-conn[data-from][data-to], 라벨 포함)만 출력한다. 행 가운데 몰아넣은
-     글리프는 실제 부모-자식 대응이 없어 "어디를 향하는지"가 틀려 보인다.
-     이 코드는 폴백 행에서 간선 목록을 읽어 실제 노드 기하를 실측한 뒤,
-     부모 하단 중앙 → 자식 상단 중앙을 잇는 직교 엘보우를 SVG로 그린다.
-     성공한 다이어그램에만 .has-svg-edges가 붙어 폴백 행이 숨는다.
-     JS가 없으면 폴백 화살표가 그대로 보여 최소한의 모양은 유지된다.
-     제한: 레벨을 건너뛰는 간선은 폴백 DOM에 없으므로 그리지 않는다(기존과 동일).
-     LR 방향은 행 레이아웃이 TD 전제라 미지원(기존과 동일, 전 콘텐츠 TD).
-  */
+  /* ── Flowchart layout ──
+     Measure HTML nodes and labels, then let Dagre position the whole graph and
+     route every edge. The canvas scrolls as one unit; nodes never wrap into a
+     different rank. Font changes and resizing rerun the same layout. */
   var flowchartRedrawAll = null;
 
   function initFlowchartEdges() {
-    var diagrams = Array.prototype.slice.call(document.querySelectorAll(".flowchart-diagram"));
+    if (typeof dagre === "undefined") return;
+    var diagrams = Array.from(document.querySelectorAll(".flowchart-diagram"));
     if (!diagrams.length) return;
-
     var SVGNS = "http://www.w3.org/2000/svg";
     var drawFns = [];
 
     diagrams.forEach(function (root, di) {
-      var conns = Array.prototype.slice.call(root.querySelectorAll(".fc-conn[data-from][data-to]"));
-      if (!conns.length) return;
-
-      var edges = conns.map(function (c) {
-        var labelEl = c.querySelector(".fc-conn-label");
-        return {
-          from: c.getAttribute("data-from"),
-          to: c.getAttribute("data-to"),
-          label: labelEl ? labelEl.textContent : "",
-        };
+      var canvas = root.querySelector(".fc-canvas");
+      if (!canvas) return;
+      var nodeEls = Array.from(canvas.querySelectorAll(".fc-node"));
+      var groupEls = Array.from(canvas.querySelectorAll(".fc-group"));
+      var nodes = new Map(nodeEls.map(function (el) { return [el.dataset.fcId, el]; }));
+      var edges = Array.from(root.querySelectorAll(".fc-conn[data-from][data-to]")).map(function (conn) {
+        return { from: conn.dataset.from, to: conn.dataset.to, label: conn.querySelector(".fc-conn-label") };
       });
-
-      // marker id는 다이어그램별 고유 (한 페이지에 여러 다이어그램).
       var svg = document.createElementNS(SVGNS, "svg");
       svg.setAttribute("class", "fc-edges");
       svg.setAttribute("aria-hidden", "true");
-      var defs = document.createElementNS(SVGNS, "defs");
       var markerId = "fc-edge-head-" + di;
+      var defs = document.createElementNS(SVGNS, "defs");
       var marker = document.createElementNS(SVGNS, "marker");
       marker.setAttribute("id", markerId);
       marker.setAttribute("viewBox", "0 0 10 10");
-      marker.setAttribute("refX", "8");
+      marker.setAttribute("refX", "9");
       marker.setAttribute("refY", "5");
-      marker.setAttribute("markerWidth", "7");
-      marker.setAttribute("markerHeight", "7");
-      marker.setAttribute("orient", "auto-start-reverse");
-      var mpath = document.createElementNS(SVGNS, "path");
-      mpath.setAttribute("d", "M 0 1 L 9 5 L 0 9 z");
-      mpath.setAttribute("class", "fc-edge-head");
-      marker.appendChild(mpath);
+      marker.setAttribute("markerWidth", "6");
+      marker.setAttribute("markerHeight", "6");
+      marker.setAttribute("orient", "auto");
+      var head = document.createElementNS(SVGNS, "path");
+      head.setAttribute("d", "M 0 1 L 9 5 L 0 9 z");
+      head.setAttribute("class", "fc-edge-head");
+      marker.appendChild(head);
       defs.appendChild(marker);
       svg.appendChild(defs);
-      root.insertBefore(svg, root.firstChild);
+      canvas.prepend(svg);
 
       var labelLayer = document.createElement("div");
-      labelLayer.setAttribute("class", "fc-edge-labels");
+      labelLayer.className = "fc-edge-labels";
       labelLayer.setAttribute("aria-hidden", "true");
-      root.appendChild(labelLayer);
+      canvas.appendChild(labelLayer);
+      edges.forEach(function (edge) {
+        if (!edge.label) return;
+        edge.label = edge.label.cloneNode(true);
+        labelLayer.appendChild(edge.label);
+      });
 
-      // id는 파서 정규식([A-Za-z0-9_]+) 산출물이라 셀렉터에 안전.
-      // 다이어그램 루트 기준으로 조회해 다른 다이어그램과 충돌 방지.
-      function findNode(id) {
-        return root.querySelector('.fc-node[data-fc-id="' + id + '"]');
+      function routePorts(edge, graph, points, fontSize) {
+        if (edge.from === edge.to || points.length < 3) return points;
+        var horizontal = /^(LR|RL)$/.test(root.dataset.fcDirection);
+        var firstBend = points[1];
+        var lastBend = points[points.length - 2];
+        function port(id, endpoint, bend) {
+          var node = graph.node(id);
+          var radius = nodes.get(id).classList.contains("fc-round") ? Math.min(node.width, node.height) / 2 : fontSize / 2;
+          var span = horizontal ? node.height : node.width;
+          var half = Math.max(0, span / 2 - radius);
+          var center = horizontal ? node.y : node.x;
+          var offset = Math.max(center - half, Math.min(center + half, horizontal ? endpoint.y : endpoint.x));
+          if (horizontal) return { x: node.x + (bend.x >= node.x ? 1 : -1) * node.width / 2, y: offset };
+          return { x: offset, y: node.y + (bend.y >= node.y ? 1 : -1) * node.height / 2 };
+        }
+        var from = port(edge.from, points[0], firstBend);
+        var to = port(edge.to, points[points.length - 1], lastBend);
+        // Dagre's diagonal boundary intersections can cut across a taller peer
+        // in the same rank. Leave and enter along the rank axis, turning only
+        // in the reserved gaps; keep the intermediate lanes for skip/back edges.
+        return [from, horizontal ? { x: firstBend.x, y: from.y } : { x: from.x, y: firstBend.y }]
+          .concat(points.slice(1, -1), [horizontal ? { x: lastBend.x, y: to.y } : { x: to.x, y: lastBend.y }, to]);
       }
 
+      var lastMeasurements = "";
       function draw() {
-        Array.prototype.slice.call(svg.querySelectorAll("path.fc-edge-line")).forEach(function (p) { p.remove(); });
-        labelLayer.innerHTML = "";
-        var rootRect = root.getBoundingClientRect();
-        var drawn = 0;
-        edges.forEach(function (e) {
-          var fromEl = findNode(e.from);
-          var toEl = findNode(e.to);
-          if (!fromEl || !toEl) return;
-          var fr = fromEl.getBoundingClientRect();
-          var tr = toEl.getBoundingClientRect();
-          var x1 = fr.left + fr.width / 2 - rootRect.left;
-          var y1 = fr.bottom - rootRect.top;
-          var x2 = tr.left + tr.width / 2 - rootRect.left;
-          var y2 = tr.top - rootRect.top;
-          if (y2 <= y1) return; // 같은 행/역행 간선은 하향 엘보우 불가 — 그리지 않음
-          var midY = (y1 + y2) / 2;
+        if (!root.clientWidth) return; // Hidden content is measured when it becomes visible.
+        var fontSize = parseFloat(getComputedStyle(root).fontSize);
+        root.style.setProperty("--fc-node-max-width", Math.max(8 * fontSize, Math.min(26 * fontSize, root.clientWidth - 2 * fontSize)) + "px");
+        root.classList.add("has-svg-edges");
+        // offset dimensions stay in canvas coordinates, including during print scaling.
+        var sizes = nodeEls.map(function (el) { return [el.offsetWidth, el.offsetHeight]; });
+        var labelSizes = edges.map(function (edge) { return edge.label ? [edge.label.offsetWidth, edge.label.offsetHeight] : [0, 0]; });
+        var measurements = JSON.stringify([root.clientWidth, fontSize, sizes, labelSizes]);
+        if (measurements === lastMeasurements) return;
+
+        var graph = new dagre.graphlib.Graph({ multigraph: true, compound: true });
+        graph.setGraph({
+          rankdir: root.dataset.fcDirection || "TB",
+          nodesep: 1.5 * fontSize, edgesep: fontSize, ranksep: 3 * fontSize,
+          marginx: fontSize, marginy: fontSize,
+        });
+        nodeEls.forEach(function (el, index) {
+          graph.setNode(el.dataset.fcId, { width: sizes[index][0], height: sizes[index][1] });
+        });
+        groupEls.forEach(function (el) { graph.setNode(el.dataset.fcId, {}); });
+        nodeEls.concat(groupEls).forEach(function (el) {
+          if (el.dataset.fcParent) graph.setParent(el.dataset.fcId, el.dataset.fcParent);
+        });
+        edges.forEach(function (edge, index) {
+          graph.setEdge(edge.from, edge.to, {
+            width: labelSizes[index][0], height: labelSizes[index][1], labelpos: "c",
+          }, String(index));
+        });
+        try {
+          dagre.layout(graph);
+          // Compound borders reserve half a rank gap above their first node.
+          // Measure titles at the computed group width, then reserve their space.
+          var titleHeight = 0;
+          groupEls.forEach(function (el) {
+            el.style.width = graph.node(el.dataset.fcId).width + "px";
+            titleHeight = Math.max(titleHeight, el.querySelector(".fc-group-label").offsetHeight);
+          });
+          if (groupEls.length) {
+            graph.graph().ranksep = Math.max(3 * fontSize, titleHeight + fontSize);
+            graph.graph().marginy = Math.max(fontSize, (titleHeight + fontSize) / 2);
+            dagre.layout(graph);
+          }
+        } catch (error) {
+          root.classList.remove("has-svg-edges");
+          console.warn("Flowchart layout failed:", error);
+          return;
+        }
+
+        var width = Math.ceil(graph.graph().width);
+        var height = Math.ceil(graph.graph().height);
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+        svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+        root.style.setProperty("--fc-print-scale", Math.min(1, root.clientWidth / width));
+        nodes.forEach(function (el, id) {
+          var node = graph.node(id);
+          el.style.left = (node.x - node.width / 2) + "px";
+          el.style.top = (node.y - node.height / 2) + "px";
+        });
+        groupEls.forEach(function (el) {
+          var group = graph.node(el.dataset.fcId);
+          el.style.left = (group.x - group.width / 2) + "px";
+          el.style.top = (group.y - group.height / 2) + "px";
+          el.style.width = group.width + "px";
+          el.style.height = group.height + "px";
+        });
+        svg.querySelectorAll(".fc-edge-line").forEach(function (path) { path.remove(); });
+        edges.forEach(function (edge, index) {
+          var route = graph.edge(edge.from, edge.to, String(index));
           var path = document.createElementNS(SVGNS, "path");
-          path.setAttribute("d", "M " + x1 + " " + y1 + " L " + x1 + " " + midY + " L " + x2 + " " + midY + " L " + x2 + " " + y2);
           path.setAttribute("class", "fc-edge-line");
+          path.setAttribute("data-from", edge.from);
+          path.setAttribute("data-to", edge.to);
+          path.setAttribute("d", routePorts(edge, graph, route.points, fontSize).map(function (point, i) {
+            return (i ? "L " : "M ") + point.x + " " + point.y;
+          }).join(" "));
           path.setAttribute("marker-end", "url(#" + markerId + ")");
           svg.appendChild(path);
-          drawn++;
-          if (e.label) {
-            var s = document.createElement("span");
-            s.className = "fc-conn-label";
-            s.textContent = e.label;
-            s.style.left = ((x1 + x2) / 2) + "px";
-            s.style.top = midY + "px";
-            labelLayer.appendChild(s);
+          if (edge.label) {
+            edge.label.style.left = route.x + "px";
+            edge.label.style.top = route.y + "px";
           }
         });
-        root.classList.toggle("has-svg-edges", drawn > 0);
+        lastMeasurements = measurements;
       }
 
+      var raf = 0;
+      function scheduleDraw() {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(draw);
+      }
       drawFns.push(draw);
       draw();
-
-      // 레이아웃 변화(리사이즈·회전·폰트 로딩)에 추적.
-      // draw()는 .has-svg-edges로 루트 크기를 바꿀 수 있어 RO가 재호출되지만,
-      // 간선 성립 여부(y2>y1)는 폴백 행 숨김 여부와 무관(행은 항상 위→아래 적층)하므로
-      // drawn 수가 불변 → 클래스 토글이 수렴하고 RO 루프는 발생하지 않는다.
       if (typeof ResizeObserver !== "undefined") {
-        var raf = 0;
-        new ResizeObserver(function () {
-          cancelAnimationFrame(raf);
-          raf = requestAnimationFrame(draw);
-        }).observe(root);
+        var observer = new ResizeObserver(scheduleDraw);
+        observer.observe(root);
+        nodeEls.forEach(function (el) { observer.observe(el); });
       }
     });
 
-    flowchartRedrawAll = function () { drawFns.forEach(function (d) { d(); }); };
-
-    var rszTimer = null;
-    window.addEventListener("resize", function () {
-      if (rszTimer) clearTimeout(rszTimer);
-      rszTimer = setTimeout(function () { if (flowchartRedrawAll) flowchartRedrawAll(); }, 150);
-    });
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(function () { if (flowchartRedrawAll) flowchartRedrawAll(); });
+    flowchartRedrawAll = function () { drawFns.forEach(function (draw) { draw(); }); };
+    window.addEventListener("resize", function () { requestAnimationFrame(flowchartRedrawAll); });
+    window.addEventListener("beforeprint", flowchartRedrawAll);
+    window.addEventListener("afterprint", flowchartRedrawAll);
+    if (document.fonts) {
+      document.fonts.ready.then(flowchartRedrawAll);
+      document.fonts.addEventListener("loadingdone", flowchartRedrawAll);
     }
   }
 

@@ -23,10 +23,16 @@ jobs:
         run: |
           for f in scripts/build.mjs bin/topic-pages.mjs \
                    lib/markdown.js lib/html.js lib/sections.js \
-                   lib/cmdstack.js lib/relflow.js \
+                   lib/cmdstack.js lib/relflow.js lib/flowchart.js assets/app.js \
                    lib/compose-content.mjs lib/search-index.js; do
             node --check "$f"
           done
 
       - name: --help smoke
         run: node scripts/build.mjs --help
+
+      - name: Install browser for diagram regression tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Diagram regression tests
+        run: npm test
