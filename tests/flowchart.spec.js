@@ -93,6 +93,9 @@ test("nodes, edge routes and labels stay clear after resizing and font changes",
     expect((await inspectGeometry(page)).map(graph => graph.edges)).toEqual([12, 5, 5, 4, 1, 2, 3, 12]);
     if (fontSize <= 32) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+      await expect.poll(() => page.locator(".flowchart-diagram").nth(1).evaluate(root =>
+        root.querySelector(".fc-canvas").offsetWidth - root.clientWidth),
+      `parallel pipelines fit at width ${width}, font ${fontSize}`).toBeLessThanOrEqual(1);
     }
   }
 });

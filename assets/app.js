@@ -460,14 +460,23 @@
           .concat(points.slice(1, -1), [horizontal ? { x: lastBend.x, y: to.y } : { x: to.x, y: lastBend.y }, to]);
       }
 
+      var rankColumns = null;
+      function sizeNodes(fontSize) {
+        var count = rankColumns || 1;
+        var room = (root.clientWidth - 2 * fontSize - (count - 1) * 1.5 * fontSize) / count;
+        nodeEls.forEach(function (el) {
+          el.style.maxWidth = Math.max(8 * fontSize, Math.min(26 * fontSize, Math.floor(room))) + "px";
+        });
+        return nodeEls.map(function (el) { return [el.offsetWidth, el.offsetHeight]; });
+      }
+
       var lastMeasurements = "";
       function draw() {
         if (!root.clientWidth) return; // Hidden content is measured when it becomes visible.
         var fontSize = parseFloat(getComputedStyle(root).fontSize);
-        root.style.setProperty("--fc-node-max-width", Math.max(8 * fontSize, Math.min(26 * fontSize, root.clientWidth - 2 * fontSize)) + "px");
         root.classList.add("has-svg-edges");
         // offset dimensions stay in canvas coordinates, including during print scaling.
-        var sizes = nodeEls.map(function (el) { return [el.offsetWidth, el.offsetHeight]; });
+        var sizes = sizeNodes(fontSize);
         var labelSizes = edges.map(function (edge) { return edge.label ? [edge.label.offsetWidth, edge.label.offsetHeight] : [0, 0]; });
         var measurements = JSON.stringify([root.clientWidth, fontSize, sizes, labelSizes]);
         if (measurements === lastMeasurements) return;
@@ -492,6 +501,24 @@
         });
         try {
           dagre.layout(graph);
+          // Use the widest vertical rank to budget node widths. Apply that
+          // budget to every node so a later single node cannot widen a branch.
+          // Wrap text inside nodes; keep ranks and their edges together.
+          if (rankColumns === null && !/^(LR|RL)$/.test(root.dataset.fcDirection)) {
+            var counts = new Map();
+            nodeEls.forEach(function (el) {
+              var y = graph.node(el.dataset.fcId).y;
+              counts.set(y, (counts.get(y) || 0) + 1);
+            });
+            rankColumns = Math.max(1, ...counts.values());
+            sizes = sizeNodes(fontSize);
+            nodeEls.forEach(function (el, index) {
+              var node = graph.node(el.dataset.fcId);
+              node.width = sizes[index][0];
+              node.height = sizes[index][1];
+            });
+            dagre.layout(graph);
+          }
           // Compound borders reserve half a rank gap above their first node.
           // Measure titles at the computed group width, then reserve their space.
           var titleHeight = 0;
@@ -545,7 +572,7 @@
             edge.label.style.top = route.y + "px";
           }
         });
-        lastMeasurements = measurements;
+        lastMeasurements = JSON.stringify([root.clientWidth, fontSize, sizes, labelSizes]);
       }
 
       var raf = 0;
